@@ -262,7 +262,10 @@ zypper_dup () {
 }
 
 restore_original_restart_on_update () {
-    sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
+    if [ ! -z "$ceph_auto_restart_on_upgrade_val" ]
+    then
+        sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
+    fi
 }
 
 chown_var_lib_ceph () {
