@@ -5,8 +5,8 @@ INST_SCRIPTS := \
 
 .PHONY: install
 install:
-	mkdir -p $(prefix)
+	set -x ; \
+	mkdir -p $(prefix)/usr/bin
 	for f in $(INST_SCRIPTS) ; do \
-		echo $$f ; \
 		install -m 0755 -D $$f $(prefix)/usr/bin ; \
 	done
