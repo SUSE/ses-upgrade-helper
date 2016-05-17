@@ -23,6 +23,11 @@ scriptname=$(basename "$0")
 upgrade_doc="http://docserv.suse.de/documents/Storage_3/ses-admin/single-html/#ceph.upgrade.2.1to3"
 usage="usage: $scriptname\n"
 
+ceph_sysconfig_file="/etc/sysconfig/ceph"
+# Pulled from /etc/sysconfig/ceph and used to store original value.
+ceph_auto_restart_on_upgrade_var="CEPH_AUTO_RESTART_ON_UPGRADE"
+ceph_auto_restart_on_upgrade_val=""
+
 # Function arrays. Since bash can't do multidimensional associate arrays, this
 # seemed like a decent fallback.
 func_names=() # Array that will contain function names.
@@ -237,7 +242,21 @@ disable_radosgw_services () {
 }
 
 disable_restart_on_update () {
-    printf "Inside $FUNCNAME\n"
+    while IFS="=" read key val
+    do
+        case "$key" in
+            ''|\#*)
+                continue
+                ;;
+            "$ceph_auto_restart_on_upgrade_var")
+                ceph_auto_restart_on_upgrade_val="$val"
+                ;;
+            *)
+                ;;
+        esac
+    done <"$ceph_sysconfig_file"
+
+    sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=no/" "$ceph_sysconfig_file"
 }
 
 zypper_dup () {
@@ -245,7 +264,7 @@ zypper_dup () {
 }
 
 restore_original_restart_on_update () {
-    printf "Inside $FUNCNAME\n"
+    sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
 }
 
 chown_var_lib_ceph () {
