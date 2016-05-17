@@ -34,6 +34,7 @@ Script to help the admin upgrade cluster nodes from SES 2.1 to SES 3
 %build
 
 %install
+cd src
 make DESTDIR=%{buildroot} install
 
 %clean
