@@ -82,6 +82,19 @@ confirm_abort () {
     done
 }
 
+output_incomplete_functions () {
+    out_green "Functions which have not yet been called or have failed:\n"
+    for i in "${!func_names[@]}"
+    do
+	if [ "${func_done[$i]}" = false ]
+	then
+	    out_white "${func_names[$i]}\n"
+	fi
+    done
+    out_green "These functions should now be performed manually per:\n"
+    out_white "$upgrade_doc\n"
+}
+
 abort () {
     out_red "Aborted.\n"
     exit
