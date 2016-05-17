@@ -22,6 +22,13 @@
 scriptname=$(basename "$0")
 upgrade_doc="http://docserv.suse.de/documents/Storage_3/ses-admin/single-html/#ceph.upgrade.2.1to3"
 usage="usage: $scriptname\n"
+
+# Function arrays. Since bash can't do multidimensional associate arrays, this
+# seemed like a decent fallback.
+func_names=() # Array that will contain function names.
+func_descs=() # Array that will contain corresponding function descriptions.
+funcs_done=() # Array that will whether corresponding functions have completed
+
 txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
