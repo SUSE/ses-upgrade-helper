@@ -6,7 +6,7 @@ INST_FILES := \
     README
 
 INST_SCRIPTS := \
-    src/upgrade-to-ses3.sh
+    upgrade-to-ses3.sh
 
 .PHONY: install
 install:
@@ -15,5 +15,5 @@ install:
 		install -m 0644 -D $$f $(prefix)/usr/share/ses-upgrade-helper ; \
 	done
 	for f in $(INST_SCRIPTS) ; do \
-		install -m 0755 -D $$f $(prefix)/usr/bin ; \
+		install -m 0755 -D src/$$f $(prefix)/usr/bin ; \
 	done
