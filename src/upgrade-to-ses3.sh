@@ -208,7 +208,31 @@ rename_ceph_user_and_group () {
 }
 
 disable_radosgw_services () {
-    printf "Inside $FUNCNAME\n"
+    local rgw_conf_section_prefix="client.radosgw"
+    local rgw_service_prefix="ceph-radosgw@"
+    local not_complete=false
+
+    # TODO: check if `ceph-conf` exists?
+    for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
+    do
+        # rgw_conf_section_name -> [client.radosgw.some_host_name]
+        # Derived service_instace -> some_host_name
+        local service_instance="${rgw_conf_section_name#${rgw_conf_section_prefix}.}"
+
+        # disable ceph-radosgw@some_host_name
+        systemctl disable "${rgw_service_prefix}${service_instance}"
+
+        if [ "$?" -ne 0 ]
+        then
+            not_complete=true
+        fi
+    done
+
+    # If we failed at least once above, indicate this to the user.
+    if [ "$not_complete" = true ]
+    then
+       return 1
+    fi
 }
 
 disable_restart_on_update () {
