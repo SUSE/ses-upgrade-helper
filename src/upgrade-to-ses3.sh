@@ -212,7 +212,8 @@ disable_radosgw_services () {
     local rgw_service_prefix="ceph-radosgw@"
     local not_complete=false
 
-    # TODO: check if `ceph-conf` exists?
+    ceph-conf &>/dev/null || return 1
+
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
     do
         # rgw_conf_section_name -> [client.radosgw.some_host_name]
@@ -257,7 +258,8 @@ enable_radosgw_services () {
     local rgw_instance_prefix="radosgw"
     local not_complete=false
 
-    # TODO: check if `ceph-conf` exists?
+    ceph-conf &>/dev/null || return 1
+
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
     do
         # rgw_conf_section_name -> [client.radosgw.some_host_name]
