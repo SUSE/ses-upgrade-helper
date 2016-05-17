@@ -19,11 +19,10 @@ Name:         ses-upgrade-helper
 Summary:      SES upgrade helper script
 Version:      0.1
 Release:      1
-License:      GPL-3.0+
+License:      GPL-2.0
 Group:        Productivity/Other
 URL:          https://github.com/SUSE/ses-upgrade-helper
 Source:       ses-upgrade-helper-%{version}.tar.xz
-BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 BuildArch:    noarch
 
 %description
@@ -36,6 +35,9 @@ Script to help the admin upgrade cluster nodes from SES 2.1 to SES 3
 
 %install
 make DESTDIR=%{buildroot} install
+
+%clean
+rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
