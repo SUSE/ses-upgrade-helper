@@ -1,0 +1,3 @@
+# ses-upgrade-helper
+
+Scripts to aid in SES product upgrades.
