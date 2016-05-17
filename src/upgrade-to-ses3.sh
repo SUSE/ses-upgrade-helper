@@ -231,6 +231,32 @@ finish () {
     printf "Inside $FUNCNAME\n"
 }
 
+func_names+=("set_crush_tunables")
+func_descs+=("Set CRUSH tunables.")
+func_names+=("stop_ceph_daemons")
+func_descs+=("Stop Ceph Daemons.")
+func_names+=("rename_ceph_user_and_group")
+func_descs+=("Rename Ceph user and group.")
+func_names+=("disable_radosgw_services")
+func_descs+=("Disable SES2 RADOSGW services, as naming convention has changed.")
+func_names+=("disable_restart_on_update")
+func_descs+=("Disable the CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option.")
+func_names+=("zypper_dup")
+func_descs+=("Perform Zypper distribution update.")
+func_names+=("restore_original_restart_on_update")
+func_descs+=("Restore original CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option.")
+func_names+=("chown_var_lib_ceph")
+func_descs+=("Recursively change ownership of /var/lib/ceph to ceph:ceph.")
+func_names+=("enable_radosgw_services")
+func_descs+=("Re-enable RADOSGW services using new SES3 naming convention.")
+func_names+=("finish")
+func_descs+=("Finish.")
+
+# Functions have not yet been called.
+for i in "${!func_names[@]}"
+do
+    func_done[$i]=false
+done
 
 # ------------------------------------------------------------------------------
 # main
@@ -246,15 +272,4 @@ then
 fi
 
 # run_func "permission_msg" "function_description" "function_name" ["function_args" ...]
-run_func "" "Set CRUSH Tunables" "set_crush_tunables"
-run_func "" "Stop Ceph Daemons" "stop_ceph_daemons"
-run_func "" "Rename Ceph User and Group" "rename_ceph_user_and_group"
-run_func "" "Disable Existing RADOSGW Services (Naming Change)" "disable_radosgw_services"
-run_func "" "Disable CEPH_AUTO_RESTART_ON_UPGRADE Sysconfig Option" "disable_restart_on_update"
-run_func "" "Perform Distribution Update" "zypper_dup"
-run_func "" "Restore CEPH_AUTO_RESTART_ON_UPGRADE Sysconfig Option" "restore_original_restart_on_update"
-run_func "" "Change Ownership of /var/lib/ceph" "chown_var_lib_ceph"
-run_func "" "Re-Enable Previously Disabled RADOSGW Services with Correct Naming Convention" "enable_radosgw_services"
-run_func "" "Finish Up" "finish"
-
 printf "\n${txtbold}${txtgreen}SES2.X to SES3 Upgrade Completed${txtnorm}\n\n"
