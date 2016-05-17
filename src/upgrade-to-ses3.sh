@@ -200,7 +200,7 @@ set_crush_tunables () {
 }
 
 stop_ceph_daemons () {
-    printf "Inside $FUNCNAME\n"
+    systemctl stop ceph.target
 }
 
 rename_ceph_user_and_group () {
