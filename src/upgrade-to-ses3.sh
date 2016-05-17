@@ -96,7 +96,8 @@ output_incomplete_functions () {
 }
 
 abort () {
-    out_red "Aborted.\n"
+    out_red "Aborting...\n\n"
+    output_incomplete_functions
     exit
 }
 
