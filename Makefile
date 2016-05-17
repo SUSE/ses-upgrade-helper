@@ -1,19 +1,12 @@
 prefix := $(DESTDIR)/
 
-INST_FILES := \
-    AUTHORS \
-    LICENSE \
-    README
-
 INST_SCRIPTS := \
     upgrade-to-ses3.sh
 
 .PHONY: install
 install:
 	mkdir -p $(prefix)
-	for f in $(INST_FILES) ; do \
-		install -m 0644 -D $$f $(prefix)/usr/share/ses-upgrade-helper ; \
-	done
 	for f in $(INST_SCRIPTS) ; do \
+		echo $$f ; \
 		install -m 0755 -D src/$$f $(prefix)/usr/bin ; \
 	done
