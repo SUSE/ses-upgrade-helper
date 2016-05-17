@@ -54,23 +54,30 @@ out_info () {
 }
 
 # Be sure that the user wants to abort the upgrade process.
-maybe_abort () {
+confirm_abort () {
     local choice=""
 
-    out_red "Are you sure you want to abort? - y/N (N): "
-    read choice
-    case $choice in
-        [Yy] | [Yy][Ee][Ss])
-            out_red "Aborted.\n"
-            exit
-            ;;
-        [Nn] | [Nn][Oo] | "")
-            :
-            ;;
-        *)
-            :
-            ;;
-    esac
+    while [ 1 ]
+    do
+        out_red "Are you sure you want to abort? - y/N (N): "
+        read choice
+        case $choice in
+            [Yy] | [Yy][Ee][Ss])
+                return 0
+                ;;
+            [Nn] | [Nn][Oo] | "")
+                return 1
+                ;;
+            *)
+                out_err "Invalid input.\n"
+                ;;
+        esac
+    done
+}
+
+abort () {
+    out_red "Aborted.\n"
+    exit
 }
 
 # Returns 0 on Y and 1 on N.
@@ -96,7 +103,13 @@ get_permission () {
                 return 1
                 ;;
             [Aa] | [Aa][Bb][Oo][Rr][Tt])
-                return 2
+                confirm_abort
+                if [ "$?" -eq 0 ]
+                then
+                    return 2
+                else
+                    continue
+                fi
                 ;;
             *)
                 out_err "Invalid input.\n"
@@ -144,7 +157,7 @@ run_func () {
             ;;
         2)
             # User aborted the process
-            maybe_abort
+            abort
             ;;
         *)
             # No-op. Do nothing.
@@ -207,7 +220,7 @@ out_green "SES2.X to SES3 Upgrade${txtnorm}\n"
 # Script needs to be run as root.
 if [ "$EUID" -ne 0 ]
 then
-    out_err "Please run this script as root."
+    out_err "Please run this script as root.\n"
     exit 1
 fi
 
