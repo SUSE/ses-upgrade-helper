@@ -245,13 +245,11 @@ disable_restart_on_update () {
     while IFS="=" read key val
     do
         case "$key" in
-            ''|\#*)
-                continue
-                ;;
             "$ceph_auto_restart_on_upgrade_var")
                 ceph_auto_restart_on_upgrade_val="$val"
                 ;;
             *)
+                continue
                 ;;
         esac
     done <"$ceph_sysconfig_file"
