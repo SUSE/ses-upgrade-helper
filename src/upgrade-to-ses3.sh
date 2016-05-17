@@ -143,7 +143,7 @@ get_permission () {
 # If empty $msg parameter passed, we will use the get_permission() default.
 # If empty $desc parameter passed, no function description will be output.
 run_func () {
-    if [ "$#" -lt 3 ]
+    if [ "$#" -lt 4 ]
     then
         out_err "$FUNCNAME: Too few arguments."
         exit 1
@@ -155,21 +155,26 @@ run_func () {
     shift
     local func=$1
     shift
+    local index=$1
+    shift
 
     out_green "\n${func}(): "
     out_white "${desc}\n"
 
     get_permission "$msg"
-
-    case $? in
+    local permission_ret=$?
+    case $permission_ret in
         0)
             # Run the function $func.
             "$func" "$@"
-            if [ "$?" -ne 0 ]
+            local func_ret=$?
+            if [ "$func_ret" -eq 0 ]
             then
+                func_done[$index]=true
+            else
                 # TODO: We hit some problem... Handle it here, or let each operation
                 #       handle itself, or...?
-                :
+                echo "Failed with: $func_ret"
             fi
             ;;
         1)
@@ -186,7 +191,6 @@ run_func () {
             ;;
     esac
 }
-
 
 # ------------------------------------------------------------------------------
 # Operations
@@ -272,4 +276,11 @@ then
 fi
 
 # run_func "permission_msg" "function_description" "function_name" ["function_args" ...]
-printf "\n${txtbold}${txtgreen}SES2.X to SES3 Upgrade Completed${txtnorm}\n\n"
+for i in "${!func_names[@]}"
+do
+    run_func "" "${func_descs[$i]}" "${func_names[$i]}" "$i"
+done
+
+out_green "\nSES2.X to SES3 Upgrade Completed\n\n"
+
+output_incomplete_functions
