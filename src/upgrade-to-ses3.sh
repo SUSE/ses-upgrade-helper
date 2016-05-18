@@ -205,6 +205,20 @@ run_func () {
 }
 
 # ------------------------------------------------------------------------------
+# Global pre-flight functions.
+# ------------------------------------------------------------------------------
+running_as_root () {
+    # Script needs to be run as root.
+    if [ "$EUID" -ne 0 ]
+    then
+	out_err "Please run this script as root.\n"
+	return "$failure"
+    fi
+}
+
+preflight_check_funcs+=("running_as_root")
+
+# ------------------------------------------------------------------------------
 # Operations
 # ------------------------------------------------------------------------------
 set_crush_tunables () {
