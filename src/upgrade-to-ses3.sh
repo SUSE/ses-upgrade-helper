@@ -364,10 +364,8 @@ enable_radosgw_services () {
 }
 
 finish () {
-    # TODO: Perform pre-flight checks
-    get_permission || return "$?"
-
-    printf "Inside $FUNCNAME\n"
+    # TODO: Noop for now.
+    :
 }
 
 func_names+=("set_crush_tunables")
@@ -432,7 +430,14 @@ Now that the ceph packages have been upgraded, we re-enable the RGW
 services using the SES3 naming convention."
 )
 func_names+=("finish")
-func_descs+=("Finish.")
+func_descs+=(
+"Update has been Finished
+========================
+Please go ahead and:
+  1. Reboot
+  2. Wait for HEALTH_OK
+  3. Then move on to the next node"
+)
 
 # Functions have not yet been called. Set their done flags to false.
 for i in "${!func_names[@]}"
