@@ -20,7 +20,7 @@
 
 # Various globals
 scriptname=$(basename "$0")
-upgrade_doc="http://docserv.suse.de/documents/Storage_3/ses-admin/single-html/#ceph.upgrade.2.1to3"
+upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 usage="usage: $scriptname\n"
 
 # Codes
