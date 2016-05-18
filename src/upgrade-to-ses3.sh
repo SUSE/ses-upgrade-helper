@@ -156,7 +156,7 @@ get_permission () {
 # If empty $msg parameter passed, we will use the get_permission() default.
 # If empty $desc parameter passed, no function description will be output.
 run_func () {
-    if [ "$#" -lt 3 ]
+    if [ "$#" -lt 4 ]
     then
         out_err "$FUNCNAME: Too few arguments."
         exit 1
@@ -167,6 +167,8 @@ run_func () {
     local desc=$1
     shift
     local index=$1
+    shift
+    local track=$1
     shift
 
     out_debug "DEBUG: about to run ${func}()"
@@ -184,7 +186,7 @@ run_func () {
     local func_ret=$?
     case $func_ret in
         "$success")
-	    func_done[$index]=true
+	    [[ "$track" = true ]] && func_done[$index]=true
             ;;
         "$skipped")
             # No-op. User does not wish to run $func.
@@ -432,7 +434,7 @@ services using the SES3 naming convention."
 func_names+=("finish")
 func_descs+=("Finish.")
 
-# Functions have not yet been called.
+# Functions have not yet been called. Set their done flags to false.
 for i in "${!func_names[@]}"
 do
     func_done[$i]=false
@@ -448,7 +450,7 @@ out_green "============================\n"
 
 for i in "${!preflight_check_funcs[@]}"
 do
-    run_func "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}" "$i" || preflight_passed=false
+    run_func "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}" "$i" false || preflight_passed=false
 done
 
 if [ "$preflight_passed" = false ]
@@ -461,7 +463,7 @@ out_green "============================\n"
 
 for i in "${!func_names[@]}"
 do
-    run_func "${func_names[$i]}" "${func_descs[$i]}" "$i"
+    run_func "${func_names[$i]}" "${func_descs[$i]}" "$i" true
 done
 
 out_green "\nSES2.X to SES3 Upgrade Completed\n\n"
