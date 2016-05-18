@@ -23,6 +23,14 @@ scriptname=$(basename "$0")
 upgrade_doc="http://docserv.suse.de/documents/Storage_3/ses-admin/single-html/#ceph.upgrade.2.1to3"
 usage="usage: $scriptname\n"
 
+# Codes
+success=0
+yes=0
+skipped=1
+no=1
+failure=2
+aborted=3
+
 ceph_sysconfig_file="/etc/sysconfig/ceph"
 # Pulled from /etc/sysconfig/ceph and used to store original value.
 ceph_auto_restart_on_upgrade_var="CEPH_AUTO_RESTART_ON_UPGRADE"
@@ -67,18 +75,19 @@ out_info () {
 
 # Be sure that the user wants to abort the upgrade process.
 confirm_abort () {
+    local msg="Are you sure you want to abort? - Y[es]/N[o] (N)"
     local choice=""
 
     while [ 1 ]
     do
-        out_red "Are you sure you want to abort? - y/N (N): "
+        out_red "$msg: "
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
-                return 0
+		return "$yes"
                 ;;
             [Nn] | [Nn][Oo] | "")
-                return 1
+		return "$no"
                 ;;
             *)
                 out_err "Invalid input.\n"
@@ -106,16 +115,10 @@ abort () {
     exit
 }
 
-# Returns 0 on Y and 1 on N.
+# Returns $yes on Yes and $no on No and $aborted on Abort.
 get_permission () {
-    local msg=$1
+    local msg="Run this operation? - Y[es]/N[o]/A[bort] (Y)"
     local choice=""
-
-    if [ -z "$msg" ]
-    then
-        msg="Run this operation?"
-    fi
-    msg="$msg - Y/N/Abort (Y)"
 
     while [ 1 ]
     do
@@ -123,19 +126,15 @@ get_permission () {
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss] | "")
-                return 0
+		return "$yes"
                 ;;
             [Nn] | [Nn][Oo])
-                return 1
+		return "$no"
                 ;;
             [Aa] | [Aa][Bb][Oo][Rr][Tt])
-                confirm_abort
-                if [ "$?" -eq 0 ]
-                then
-                    return 2
-                else
-                    continue
-                fi
+		# If $yes, return $aborted, otherwise continue asking.
+		confirm_abort || continue
+		return "$aborted"
                 ;;
             *)
                 out_err "Invalid input.\n"
@@ -148,17 +147,15 @@ get_permission () {
 # If empty $msg parameter passed, we will use the get_permission() default.
 # If empty $desc parameter passed, no function description will be output.
 run_func () {
-    if [ "$#" -lt 4 ]
+    if [ "$#" -lt 3 ]
     then
         out_err "$FUNCNAME: Too few arguments."
         exit 1
     fi
 
-    local msg=$1
+    local func=$1
     shift
     local desc=$1
-    shift
-    local func=$1
     shift
     local index=$1
     shift
@@ -166,27 +163,30 @@ run_func () {
     out_green "\n${func}(): "
     out_white "${desc}\n"
 
-    get_permission "$msg"
-    local permission_ret=$?
-    case $permission_ret in
-        0)
-            # Run the function $func.
-            "$func" "$@"
-            local func_ret=$?
-            if [ "$func_ret" -eq 0 ]
-            then
-                func_done[$index]=true
-            else
-                # TODO: We hit some problem... Handle it here, or let each operation
-                #       handle itself, or...?
-                echo "Failed with: $func_ret"
-            fi
+    # Run the function $func. It will:
+    #   1. Perform necessary checks.
+    #   2. If needed, get the user's permission.
+    #   3. Run and return a value:
+    #      i.   0 - success.
+    #      ii.  1 - did not run.
+    #      iii. 2 - failure.
+    #      iv.  3 - abort
+    "$func" "$@"
+    local func_ret=$?
+    case $func_ret in
+        "$success")
+	    func_done[$index]=true
             ;;
-        1)
+        "$skipped")
             # No-op. User does not wish to run $func.
-            :
+	    out_white "Skipped!\n"
             ;;
-        2)
+        "$failure")
+	    # TODO: We hit some problem... Handle it here, or let each operation
+	    #       handle itself, or...?
+	    out_red "Failed!\n"
+	    ;;
+	"$aborted")
             # User aborted the process
             abort
             ;;
@@ -201,16 +201,25 @@ run_func () {
 # Operations
 # ------------------------------------------------------------------------------
 set_crush_tunables () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
 stop_ceph_daemons () {
-    systemctl stop ceph.target
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
+    systemctl stop ceph.target || return "$failed"
 }
 
 rename_ceph_user_and_group () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
     local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
+
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
 
     # Only perform the rename if old_cephadm_user exists.
     id -u "$old_cephadm_user" &>/dev/null
@@ -227,7 +236,9 @@ disable_radosgw_services () {
     local rgw_service_prefix="ceph-radosgw@"
     local not_complete=false
 
-    ceph-conf &>/dev/null || return 1
+    # TODO: Perform pre-flight checks
+    ceph-conf &>/dev/null || return "$skipped"
+    get_permission || return "$?"
 
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
     do
@@ -236,22 +247,20 @@ disable_radosgw_services () {
         local rgw_service_instance="${rgw_conf_section_name#${rgw_conf_section_prefix}.}"
 
         # disable ceph-radosgw@some_host_name
-        systemctl disable "${rgw_service_prefix}${rgw_service_instance}"
-
-        if [ "$?" -ne 0 ]
-        then
-            not_complete=true
-        fi
+        systemctl disable "${rgw_service_prefix}${rgw_service_instance}" || not_complete=true
     done
 
     # If we failed at least once above, indicate this to the user.
     if [ "$not_complete" = true ]
     then
-       return 1
+       return "$failed"
     fi
 }
 
 disable_restart_on_update () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     while IFS="=" read key val
     do
         case "$key" in
@@ -268,10 +277,16 @@ disable_restart_on_update () {
 }
 
 zypper_dup () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
 restore_original_restart_on_update () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     if [ ! -z "$ceph_auto_restart_on_upgrade_val" ]
     then
         sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
@@ -279,6 +294,9 @@ restore_original_restart_on_update () {
 }
 
 chown_var_lib_ceph () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
@@ -288,7 +306,9 @@ enable_radosgw_services () {
     local rgw_instance_prefix="radosgw"
     local not_complete=false
 
-    ceph-conf &>/dev/null || return 1
+    # TODO: Perform pre-flight checks
+    ceph-conf &>/dev/null || return "$skipped"
+    get_permission || return "$?"
 
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
     do
@@ -297,22 +317,20 @@ enable_radosgw_services () {
         local rgw_service_instance="${rgw_conf_section_name#${rgw_conf_section_prefix}.}"
 
         # enable ceph-radosgw@radosgw.some_host_name
-        systemctl enable "${rgw_service_prefix}${rgw_instance_prefix}.${rgw_service_instance}"
-
-        if [ "$?" -ne 0 ]
-        then
-            not_complete=true
-        fi
+        systemctl enable "${rgw_service_prefix}${rgw_instance_prefix}.${rgw_service_instance}" || not_complete=true
     done
 
     # If we failed at least once above, indicate this to the user.
     if [ "$not_complete" = true ]
     then
-       return 1
+       return "$failed"
     fi
 }
 
 finish () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
@@ -359,7 +377,7 @@ fi
 # run_func "permission_msg" "function_description" "function_name" ["function_args" ...]
 for i in "${!func_names[@]}"
 do
-    run_func "" "${func_descs[$i]}" "${func_names[$i]}" "$i"
+    run_func "${func_names[$i]}" "${func_descs[$i]}" "$i"
 done
 
 out_green "\nSES2.X to SES3 Upgrade Completed\n\n"
