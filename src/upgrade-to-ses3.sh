@@ -234,7 +234,7 @@ su/sudo are just fine.
 # ------------------------------------------------------------------------------
 set_crush_tunables () {
     # TODO: Preflight maybe should include checking if the cluster is up?
-    ceph --version || return "$skipped"
+    ceph --version &>/dev/null || return "$skipped"
     get_permission || return "$?"
 
     ceph osd crush tunables optimal || return "$failure"
