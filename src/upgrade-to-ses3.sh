@@ -233,10 +233,11 @@ su/sudo are just fine.
 # Operations
 # ------------------------------------------------------------------------------
 set_crush_tunables () {
-    # TODO: Perform pre-flight checks
+    # TODO: Preflight maybe should include checking if the cluster is up?
+    ceph --version || return "$skipped"
     get_permission || return "$?"
 
-    printf "Inside $FUNCNAME\n"
+    ceph osd crush tunables optimal || return "$failure"
 }
 
 stop_ceph_daemons () {
@@ -370,7 +371,8 @@ func_names+=("set_crush_tunables")
 func_descs+=(
 "Set CRUSH tunables
 ==================
-ipso facto"
+This will set OSD CRUSH tunables to optimal. WARNING: if you have customized
+tunables, select \"No\" at the prompt."
 )
 func_names+=("stop_ceph_daemons")
 func_descs+=(
