@@ -174,19 +174,19 @@ run_func () {
     "$func" "$@"
     local func_ret=$?
     case $func_ret in
-        0)
+        "$success")
 	    func_done[$index]=true
             ;;
-        1)
+        "$skipped")
             # No-op. User does not wish to run $func.
 	    out_white "Skipped!\n"
             ;;
-        2)
+        "$failure")
 	    # TODO: We hit some problem... Handle it here, or let each operation
 	    #       handle itself, or...?
 	    out_red "Failed!\n"
 	    ;;
-	3)
+	"$aborted")
             # User aborted the process
             abort
             ;;
