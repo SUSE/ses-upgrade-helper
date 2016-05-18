@@ -330,7 +330,8 @@ chown_var_lib_ceph () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
-    printf "Inside $FUNCNAME\n"
+    out_info "This may take some time depending on the number of files on the OSD mounts.\n"
+    chown -R ceph:ceph /var/lib/ceph || return "$failure"
 }
 
 enable_radosgw_services () {
