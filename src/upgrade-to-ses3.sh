@@ -42,6 +42,9 @@ ceph_auto_restart_on_upgrade_val=""
 func_names=() # Array that will contain function names.
 func_descs=() # Array that will contain corresponding function descriptions.
 funcs_done=() # Array that will whether corresponding functions have completed
+preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
+preflight_check_descs=() # Array of preflight function descriptions.
+preflight_passed=true    # Assume global preflight checks will succeed.
 
 txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
@@ -201,7 +204,26 @@ run_func () {
             :
             ;;
     esac
+
+    return "$func_ret"
 }
+
+# ------------------------------------------------------------------------------
+# Global pre-flight functions.
+# ------------------------------------------------------------------------------
+running_as_root () {
+    # Script needs to be run as root.
+    if [ "$EUID" -ne 0 ]
+    then
+	out_err "Please run this script as root.\n"
+	return "$failure"
+    fi
+
+    return "$success"
+}
+
+preflight_check_funcs+=("running_as_root")
+preflight_check_descs+=("Script is running as root.")
 
 # ------------------------------------------------------------------------------
 # Operations
@@ -217,7 +239,7 @@ stop_ceph_daemons () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
-    systemctl stop ceph.target || return "$failed"
+    systemctl stop ceph.target || return "$failure"
 }
 
 rename_ceph_user_and_group () {
@@ -411,16 +433,20 @@ done
 # main
 # ------------------------------------------------------------------------------
 
-out_green "SES2.X to SES3 Upgrade${txtnorm}\n"
+out_green "SES2.X to SES3 Upgrade${txtnorm}\n\n"
+out_green "Running Pre-flight Checks...\n"
 
-# Script needs to be run as root.
-if [ "$EUID" -ne 0 ]
+for i in "${!preflight_check_funcs[@]}"
+do
+    run_func "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}" "$i" || preflight_passed=false
+done
+
+if [ "$preflight_passed" = false ]
 then
-    out_err "Please run this script as root.\n"
-    exit 1
+    abort
 fi
 
-# run_func "permission_msg" "function_description" "function_name" ["function_args" ...]
+
 for i in "${!func_names[@]}"
 do
     run_func "${func_names[$i]}" "${func_descs[$i]}" "$i"
