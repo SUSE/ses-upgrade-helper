@@ -223,7 +223,11 @@ running_as_root () {
 }
 
 preflight_check_funcs+=("running_as_root")
-preflight_check_descs+=("Script is running as root.")
+preflight_check_descs+=(
+"Checking if script is running as root
+====================================
+su/sudo are just fine.
+")
 
 # ------------------------------------------------------------------------------
 # Operations
@@ -435,6 +439,7 @@ done
 
 out_green "SES2.X to SES3 Upgrade${txtnorm}\n\n"
 out_green "Running Pre-flight Checks...\n"
+out_green "============================\n"
 
 for i in "${!preflight_check_funcs[@]}"
 do
@@ -446,6 +451,8 @@ then
     abort
 fi
 
+out_green "Pre-flight Checks Succeeded!\n"
+out_green "============================\n"
 
 for i in "${!func_names[@]}"
 do
