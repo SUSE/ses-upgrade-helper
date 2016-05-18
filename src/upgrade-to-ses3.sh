@@ -42,6 +42,7 @@ ceph_auto_restart_on_upgrade_val=""
 func_names=() # Array that will contain function names.
 func_descs=() # Array that will contain corresponding function descriptions.
 funcs_done=() # Array that will whether corresponding functions have completed
+preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
 
 txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
