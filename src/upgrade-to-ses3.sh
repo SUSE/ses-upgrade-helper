@@ -379,13 +379,15 @@ func_names+=("stop_ceph_daemons")
 func_descs+=(
 "Stop Ceph Daemons
 =================
-ipso facto"
+Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
 func_names+=("rename_ceph_user_and_group")
 func_descs+=(
 "Rename Ceph user and group
 ==========================
-ipso facto"
+SES2 ran `ceph-deploy` under the username \"ceph\". With SES3,
+Ceph daemons run as user \"ceph\" in group \"ceph\". This will
+rename the adminstrative user \"ceph\" to \"cephadm\"."
 )
 func_names+=("disable_radosgw_services")
 func_descs+=(
@@ -412,7 +414,7 @@ func_names+=("restore_original_restart_on_update")
 func_descs+=(
 "Restore CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
 =====================================================
-ipso ditto"
+Restores this sysconfig option to the value saved in the \"Disable\" step above."
 )
 func_names+=("chown_var_lib_ceph")
 func_descs+=(
