@@ -247,18 +247,13 @@ disable_radosgw_services () {
         local rgw_service_instance="${rgw_conf_section_name#${rgw_conf_section_prefix}.}"
 
         # disable ceph-radosgw@some_host_name
-        systemctl disable "${rgw_service_prefix}${rgw_service_instance}"
-
-        if [ "$?" -ne 0 ]
-        then
-            not_complete=true
-        fi
+        systemctl disable "${rgw_service_prefix}${rgw_service_instance}" || not_complete=true
     done
 
     # If we failed at least once above, indicate this to the user.
     if [ "$not_complete" = true ]
     then
-       return 1
+       return "$failed"
     fi
 }
 
@@ -322,18 +317,13 @@ enable_radosgw_services () {
         local rgw_service_instance="${rgw_conf_section_name#${rgw_conf_section_prefix}.}"
 
         # enable ceph-radosgw@radosgw.some_host_name
-        systemctl enable "${rgw_service_prefix}${rgw_instance_prefix}.${rgw_service_instance}"
-
-        if [ "$?" -ne 0 ]
-        then
-            not_complete=true
-        fi
+        systemctl enable "${rgw_service_prefix}${rgw_instance_prefix}.${rgw_service_instance}" || not_complete=true
     done
 
     # If we failed at least once above, indicate this to the user.
     if [ "$not_complete" = true ]
     then
-       return 1
+       return "$failed"
     fi
 }
 
