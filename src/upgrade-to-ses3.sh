@@ -23,6 +23,14 @@ scriptname=$(basename "$0")
 upgrade_doc="http://docserv.suse.de/documents/Storage_3/ses-admin/single-html/#ceph.upgrade.2.1to3"
 usage="usage: $scriptname\n"
 
+# Codes
+success=0
+yes=0
+skipped=1
+no=1
+failure=2
+aborted=3
+
 ceph_sysconfig_file="/etc/sysconfig/ceph"
 # Pulled from /etc/sysconfig/ceph and used to store original value.
 ceph_auto_restart_on_upgrade_var="CEPH_AUTO_RESTART_ON_UPGRADE"
