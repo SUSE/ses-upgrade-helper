@@ -226,17 +226,18 @@ preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
 "Checking if script is running as root
 ====================================
-su/sudo are just fine.
-")
+su/sudo are just fine."
+)
 
 # ------------------------------------------------------------------------------
 # Operations
 # ------------------------------------------------------------------------------
 set_crush_tunables () {
-    # TODO: Perform pre-flight checks
+    # TODO: Preflight maybe should include checking if the cluster is up?
+    ceph --version &>/dev/null || return "$skipped"
     get_permission || return "$?"
 
-    printf "Inside $FUNCNAME\n"
+    ceph osd crush tunables optimal || return "$failure"
 }
 
 stop_ceph_daemons () {
@@ -329,7 +330,8 @@ chown_var_lib_ceph () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
-    printf "Inside $FUNCNAME\n"
+    out_info "This may take some time depending on the number of files on the OSD mounts.\n"
+    chown -R ceph:ceph /var/lib/ceph || return "$failure"
 }
 
 enable_radosgw_services () {
@@ -370,19 +372,22 @@ func_names+=("set_crush_tunables")
 func_descs+=(
 "Set CRUSH tunables
 ==================
-ipso facto"
+This will set OSD CRUSH tunables to optimal. WARNING: if you have customized
+tunables, select \"No\" at the prompt."
 )
 func_names+=("stop_ceph_daemons")
 func_descs+=(
 "Stop Ceph Daemons
 =================
-ipso facto"
+Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
 func_names+=("rename_ceph_user_and_group")
 func_descs+=(
 "Rename Ceph user and group
 ==========================
-ipso facto"
+SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
+Ceph daemons run as user \"ceph\" in group \"ceph\". This will
+rename the adminstrative user \"ceph\" to \"cephadm\"."
 )
 func_names+=("disable_radosgw_services")
 func_descs+=(
@@ -409,7 +414,7 @@ func_names+=("restore_original_restart_on_update")
 func_descs+=(
 "Restore CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
 =====================================================
-ipso ditto"
+Restores this sysconfig option to the value saved in the \"Disable\" step above."
 )
 func_names+=("chown_var_lib_ceph")
 func_descs+=(
