@@ -84,10 +84,10 @@ confirm_abort () {
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
-                return 0
+		return "$yes"
                 ;;
             [Nn] | [Nn][Oo] | "")
-                return 1
+		return "$no"
                 ;;
             *)
                 out_err "Invalid input.\n"
@@ -115,7 +115,7 @@ abort () {
     exit
 }
 
-# Returns 0 on Yes and 1 on No and 2 on Abort.
+# Returns $yes on Yes and $no on No and $aborted on Abort.
 get_permission () {
     local msg="Run this operation? - Y[es]/N[o]/A[bort] (Y)"
     local choice=""
@@ -126,19 +126,15 @@ get_permission () {
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss] | "")
-                return 0
+		return "$yes"
                 ;;
             [Nn] | [Nn][Oo])
-                return 1
+		return "$no"
                 ;;
             [Aa] | [Aa][Bb][Oo][Rr][Tt])
-                confirm_abort
-                if [ "$?" -eq 0 ]
-                then
-                    return 2
-                else
-                    continue
-                fi
+		# If $yes, return $aborted, otherwise continue asking.
+		confirm_abort || continue
+		return "$aborted"
                 ;;
             *)
                 out_err "Invalid input.\n"
