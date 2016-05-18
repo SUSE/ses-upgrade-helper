@@ -209,7 +209,17 @@ stop_ceph_daemons () {
 }
 
 rename_ceph_user_and_group () {
-    printf "Inside $FUNCNAME\n"
+    local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
+    local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
+
+    # Only perform the rename if old_cephadm_user exists.
+    id -u "$old_cephadm_user" &>/dev/null
+    if [ "$?" -eq 0 ]
+    then
+        # Rename old_cephadm_user to new_cephadm_user (ceph -> cephadm).
+        # TODO: more clever error handling.
+        usermod -l "$new_cephadm_user" "$old_ceph_user"
+    fi
 }
 
 disable_radosgw_services () {
