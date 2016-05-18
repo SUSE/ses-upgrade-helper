@@ -163,27 +163,30 @@ run_func () {
     out_green "\n${func}(): "
     out_white "${desc}\n"
 
-    get_permission
-    local permission_ret=$?
-    case $permission_ret in
+    # Run the function $func. It will:
+    #   1. Perform necessary checks.
+    #   2. If needed, get the user's permission.
+    #   3. Run and return a value:
+    #      i.   0 - success.
+    #      ii.  1 - did not run.
+    #      iii. 2 - failure.
+    #      iv.  3 - abort
+    "$func" "$@"
+    local func_ret=$?
+    case $func_ret in
         0)
-            # Run the function $func.
-            "$func" "$@"
-            local func_ret=$?
-            if [ "$func_ret" -eq 0 ]
-            then
-                func_done[$index]=true
-            else
-                # TODO: We hit some problem... Handle it here, or let each operation
-                #       handle itself, or...?
-                echo "Failed with: $func_ret"
-            fi
+	    func_done[$index]=true
             ;;
         1)
             # No-op. User does not wish to run $func.
-            :
+	    out_white "Skipped!\n"
             ;;
         2)
+	    # TODO: We hit some problem... Handle it here, or let each operation
+	    #       handle itself, or...?
+	    out_red "Failed!\n"
+	    ;;
+	3)
             # User aborted the process
             abort
             ;;
