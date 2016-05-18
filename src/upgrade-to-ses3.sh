@@ -234,7 +234,7 @@ stop_ceph_daemons () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
-    systemctl stop ceph.target || return "$failed"
+    systemctl stop ceph.target || return "$failure"
 }
 
 rename_ceph_user_and_group () {
