@@ -19,6 +19,7 @@
 # ==============================================================================
 
 # Various globals
+DEBUG=true
 scriptname=$(basename "$0")
 upgrade_doc="http://docserv.suse.de/documents/Storage_3/ses-admin/single-html/#ceph.upgrade.2.1to3"
 usage="usage: $scriptname\n"
@@ -47,6 +48,11 @@ txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
 txtwhite=$(tput setaf 7)
+
+out_debug () {
+    local msg=$1
+    [[ "$DEBUG" = true ]] && printf "$msg\n"
+}
 
 out_red () {
     local msg=$1
@@ -160,8 +166,8 @@ run_func () {
     local index=$1
     shift
 
-    out_green "\n${func}(): "
-    out_white "${desc}\n"
+    out_debug "DEBUG: about to run ${func}()"
+    out_white "\n${desc}\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
