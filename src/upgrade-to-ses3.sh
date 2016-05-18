@@ -226,8 +226,8 @@ preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
 "Checking if script is running as root
 ====================================
-su/sudo are just fine.
-")
+su/sudo are just fine."
+)
 
 # ------------------------------------------------------------------------------
 # Operations
@@ -385,7 +385,7 @@ func_names+=("rename_ceph_user_and_group")
 func_descs+=(
 "Rename Ceph user and group
 ==========================
-SES2 ran `ceph-deploy` under the username \"ceph\". With SES3,
+SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
 Ceph daemons run as user \"ceph\" in group \"ceph\". This will
 rename the adminstrative user \"ceph\" to \"cephadm\"."
 )
