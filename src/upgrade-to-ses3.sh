@@ -106,16 +106,10 @@ abort () {
     exit
 }
 
-# Returns 0 on Y and 1 on N.
+# Returns 0 on Yes and 1 on No and 2 on Abort.
 get_permission () {
-    local msg=$1
+    local msg="Run this operation? - Y[es]/N[o]/A[bort] (Y)"
     local choice=""
-
-    if [ -z "$msg" ]
-    then
-        msg="Run this operation?"
-    fi
-    msg="$msg - Y/N/Abort (Y)"
 
     while [ 1 ]
     do
@@ -148,17 +142,15 @@ get_permission () {
 # If empty $msg parameter passed, we will use the get_permission() default.
 # If empty $desc parameter passed, no function description will be output.
 run_func () {
-    if [ "$#" -lt 4 ]
+    if [ "$#" -lt 3 ]
     then
         out_err "$FUNCNAME: Too few arguments."
         exit 1
     fi
 
-    local msg=$1
+    local func=$1
     shift
     local desc=$1
-    shift
-    local func=$1
     shift
     local index=$1
     shift
@@ -166,7 +158,7 @@ run_func () {
     out_green "\n${func}(): "
     out_white "${desc}\n"
 
-    get_permission "$msg"
+    get_permission
     local permission_ret=$?
     case $permission_ret in
         0)
@@ -359,7 +351,7 @@ fi
 # run_func "permission_msg" "function_description" "function_name" ["function_args" ...]
 for i in "${!func_names[@]}"
 do
-    run_func "" "${func_descs[$i]}" "${func_names[$i]}" "$i"
+    run_func "${func_names[$i]}" "${func_descs[$i]}" "$i"
 done
 
 out_green "\nSES2.X to SES3 Upgrade Completed\n\n"
