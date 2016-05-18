@@ -218,6 +218,8 @@ running_as_root () {
 	out_err "Please run this script as root.\n"
 	return "$failure"
     fi
+
+    return "$success"
 }
 
 preflight_check_funcs+=("running_as_root")
