@@ -201,16 +201,25 @@ run_func () {
 # Operations
 # ------------------------------------------------------------------------------
 set_crush_tunables () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
 stop_ceph_daemons () {
-    systemctl stop ceph.target
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
+    systemctl stop ceph.target || return "$failed"
 }
 
 rename_ceph_user_and_group () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
     local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
+
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
 
     # Only perform the rename if old_cephadm_user exists.
     id -u "$old_cephadm_user" &>/dev/null
@@ -227,7 +236,9 @@ disable_radosgw_services () {
     local rgw_service_prefix="ceph-radosgw@"
     local not_complete=false
 
-    ceph-conf &>/dev/null || return 1
+    # TODO: Perform pre-flight checks
+    ceph-conf &>/dev/null || return "$skipped"
+    get_permission || return "$?"
 
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
     do
@@ -252,6 +263,9 @@ disable_radosgw_services () {
 }
 
 disable_restart_on_update () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     while IFS="=" read key val
     do
         case "$key" in
@@ -268,10 +282,16 @@ disable_restart_on_update () {
 }
 
 zypper_dup () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
 restore_original_restart_on_update () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     if [ ! -z "$ceph_auto_restart_on_upgrade_val" ]
     then
         sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
@@ -279,6 +299,9 @@ restore_original_restart_on_update () {
 }
 
 chown_var_lib_ceph () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
@@ -288,7 +311,9 @@ enable_radosgw_services () {
     local rgw_instance_prefix="radosgw"
     local not_complete=false
 
-    ceph-conf &>/dev/null || return 1
+    # TODO: Perform pre-flight checks
+    ceph-conf &>/dev/null || return "$skipped"
+    get_permission || return "$?"
 
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
     do
@@ -313,6 +338,9 @@ enable_radosgw_services () {
 }
 
 finish () {
+    # TODO: Perform pre-flight checks
+    get_permission || return "$?"
+
     printf "Inside $FUNCNAME\n"
 }
 
