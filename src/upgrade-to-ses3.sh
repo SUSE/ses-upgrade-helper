@@ -19,6 +19,7 @@
 # ==============================================================================
 
 # Various globals
+DEBUG=true
 scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 usage="usage: $scriptname\n"
@@ -47,6 +48,11 @@ txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
 txtwhite=$(tput setaf 7)
+
+out_debug () {
+    local msg=$1
+    [[ "$DEBUG" = true ]] && printf "$msg\n"
+}
 
 out_red () {
     local msg=$1
@@ -160,8 +166,8 @@ run_func () {
     local index=$1
     shift
 
-    out_green "\n${func}(): "
-    out_white "${desc}\n"
+    out_debug "DEBUG: about to run ${func}()"
+    out_white "\n${desc}\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
@@ -335,23 +341,63 @@ finish () {
 }
 
 func_names+=("set_crush_tunables")
-func_descs+=("Set CRUSH tunables.")
+func_descs+=(
+"Set CRUSH tunables
+==================
+ipso facto"
+)
 func_names+=("stop_ceph_daemons")
-func_descs+=("Stop Ceph Daemons.")
+func_descs+=(
+"Stop Ceph Daemons
+=================
+ipso facto"
+)
 func_names+=("rename_ceph_user_and_group")
-func_descs+=("Rename Ceph user and group.")
+func_descs+=(
+"Rename Ceph user and group
+==========================
+ipso facto"
+)
 func_names+=("disable_radosgw_services")
-func_descs+=("Disable SES2 RADOSGW services, as naming convention has changed.")
+func_descs+=(
+"Disable SES2 RADOSGW services
+=============================
+Since the naming convention has changed, before upgrade we need to temporarily
+disable the RGW services. They will be re-enabled after the upgrade."
+)
 func_names+=("disable_restart_on_update")
-func_descs+=("Disable the CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option.")
+func_descs+=(
+"Disable CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
+=====================================================
+Since we will be performing additional steps after the upgrade, we do not
+want the services to be restarted automatically. We will restart them manually
+after the upgrade and restore the sysconfig option to is original value"
+)
 func_names+=("zypper_dup")
-func_descs+=("Perform Zypper distribution update.")
+func_descs+=(
+"Zypper distribution upgrade
+===========================
+This step upgrades the system (zypper dist-upgrade)"
+)
 func_names+=("restore_original_restart_on_update")
-func_descs+=("Restore original CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option.")
+func_descs+=(
+"Restore CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
+=====================================================
+ipso ditto"
+)
 func_names+=("chown_var_lib_ceph")
-func_descs+=("Recursively change ownership of /var/lib/ceph to ceph:ceph.")
+func_descs+=(
+"Set ownership of /var/lib/ceph
+==============================
+This step may take a long time if your OSDs have a lot of data in them."
+)
 func_names+=("enable_radosgw_services")
-func_descs+=("Re-enable RADOSGW services using new SES3 naming convention.")
+func_descs+=(
+"Re-enable RADOSGW services
+==========================
+Now that the ceph packages have been upgraded, we re-enable the RGW
+services using the SES3 naming convention."
+)
 func_names+=("finish")
 func_descs+=("Finish.")
 
