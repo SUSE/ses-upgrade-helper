@@ -315,7 +315,7 @@ zypper_dup () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
-    printf "Inside $FUNCNAME\n"
+    zypper dist-upgrade || return "$failure"
 }
 
 restore_original_restart_on_update () {
