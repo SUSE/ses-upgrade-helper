@@ -420,7 +420,6 @@ then
     exit 1
 fi
 
-# run_func "permission_msg" "function_description" "function_name" ["function_args" ...]
 for i in "${!func_names[@]}"
 do
     run_func "${func_names[$i]}" "${func_descs[$i]}" "$i"
