@@ -186,30 +186,34 @@ run_func () {
     #      ii.  1 - did not run.
     #      iii. 2 - failure.
     #      iv.  3 - abort
-    "$func" "$@"
-    local func_ret=$?
-    case $func_ret in
-        "$success")
-	    [[ "$track" = true ]] && func_done[$index]=true
-            ;;
-        "$skipped")
-            # No-op. User does not wish to run $func.
-	    out_white "Skipped!\n"
-            ;;
-        "$failure")
-	    # TODO: We hit some problem... Handle it here, or let each operation
-	    #       handle itself, or...?
-	    out_red "Failed!\n"
-	    ;;
-	"$aborted")
-            # User aborted the process
-            abort
-            ;;
-        *)
-            # No-op. Do nothing.
-            :
-            ;;
-    esac
+    local func_ret="$failure"
+    while [ "$func_ret" = "$failure" ]
+    do
+	"$func" "$@"
+	func_ret="$?"
+	case $func_ret in
+	    "$success")
+		[[ "$track" = true ]] && func_done[$index]=true
+		;;
+	    "$skipped")
+		# No-op. User does not wish to run $func.
+		out_white "Skipped!\n"
+		;;
+	    "$failure")
+		# TODO: We hit some problem... Handle it here, or let each operation
+		#       handle itself, or...?
+		out_red "Failed!\n"
+		;;
+	    "$aborted")
+		# User aborted the process
+		abort
+		;;
+	    *)
+		# No-op. Do nothing.
+		:
+		;;
+	esac
+    done
 
     return "$func_ret"
 }
