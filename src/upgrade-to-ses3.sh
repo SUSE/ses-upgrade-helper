@@ -257,12 +257,11 @@ rename_ceph_user_and_group () {
     get_permission || return "$?"
 
     # Only perform the rename if old_cephadm_user exists.
-    id -u "$old_cephadm_user" &>/dev/null
-    if [ "$?" -eq 0 ]
+    if ! getent passwd "$old_cephadm_user" >/dev/null
     then
         # Rename old_cephadm_user to new_cephadm_user (ceph -> cephadm).
         # TODO: more clever error handling.
-        usermod -l "$new_cephadm_user" "$old_ceph_user"
+        usermod -l "$new_cephadm_user" "$old_cephadm_user"
     fi
 }
 
