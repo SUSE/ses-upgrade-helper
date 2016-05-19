@@ -84,12 +84,14 @@ out_info () {
 
 # Be sure that the user wants to abort the upgrade process.
 confirm_abort () {
-    local msg="Are you sure you want to abort? - Y[es]/N[o] (N)"
+    local msg="Are you sure you want to abort?"
+    local answers="Y[es]/N[o] (N)"
+    local prompt="[$msg - $answers]> "
     local choice=""
 
     while [ 1 ]
     do
-        out_red "$msg: "
+	out_red "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
