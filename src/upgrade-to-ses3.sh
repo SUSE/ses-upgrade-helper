@@ -461,7 +461,10 @@ done
 # main
 # ------------------------------------------------------------------------------
 
-out_green "SES2.X to SES3 Upgrade${txtnorm}\n\n"
+out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_green "===== SES2.X to SES3 Upgrade =====\n"
+out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+
 out_green "Running Pre-flight Checks...\n"
 out_green "============================\n"
 
@@ -483,6 +486,8 @@ do
     run_func "${func_names[$i]}" "${func_descs[$i]}" "$i" true
 done
 
-out_green "\nSES2.X to SES3 Upgrade Completed\n\n"
+out_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_green "===== SES2.X to SES3 Upgrade Completed =====\n"
+out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 
 output_incomplete_functions
