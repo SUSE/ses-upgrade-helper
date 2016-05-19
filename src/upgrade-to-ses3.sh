@@ -19,7 +19,7 @@
 # ==============================================================================
 
 # Various globals
-DEBUG=true
+DEBUG=false
 scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 usage="usage: $scriptname\n"
@@ -175,7 +175,7 @@ run_func () {
     local track=$1
     shift
 
-    out_debug "DEBUG: about to run ${func}()"
+    out_debug "\nDEBUG: about to run ${func}()"
     out_white "\n\n${desc}\n\n"
 
     # Run the function $func. It will:
