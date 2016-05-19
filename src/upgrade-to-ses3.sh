@@ -126,14 +126,16 @@ abort () {
     exit
 }
 
-# Returns $yes on Yes and $no on No and $aborted on Abort.
+# Returns $yes on Yes, $no on No and $aborted on Abort.
 get_permission () {
-    local msg="Run this operation? - Y[es]/N[o]/A[bort] (Y)"
+    local msg="Run this operation?"
+    local answers="Y[es]/N[o]/A[bort] (Y)"
+    local prompt="[$msg - $answers]> "
     local choice=""
 
     while [ 1 ]
     do
-        printf "$msg: "
+	printf "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss] | "")
