@@ -271,7 +271,7 @@ disable_radosgw_services () {
     local not_complete=false
 
     # TODO: Perform pre-flight checks
-    ceph-conf &>/dev/null || return "$skipped"
+    ceph-conf --version &>/dev/null || return "$skipped"
     get_permission || return "$?"
 
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
@@ -342,7 +342,7 @@ enable_radosgw_services () {
     local not_complete=false
 
     # TODO: Perform pre-flight checks
-    ceph-conf &>/dev/null || return "$skipped"
+    ceph-conf --version &>/dev/null || return "$skipped"
     get_permission || return "$?"
 
     for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
