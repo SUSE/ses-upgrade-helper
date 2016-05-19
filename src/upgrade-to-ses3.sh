@@ -475,7 +475,7 @@ then
     abort
 fi
 
-out_green "Pre-flight Checks Succeeded!\n"
+out_green "\nPre-flight Checks Succeeded!\n"
 out_green "============================\n"
 
 for i in "${!func_names[@]}"
