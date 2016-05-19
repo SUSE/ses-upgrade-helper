@@ -176,7 +176,7 @@ run_func () {
     shift
 
     out_debug "DEBUG: about to run ${func}()"
-    out_white "\n${desc}\n"
+    out_white "\n\n${desc}\n\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
