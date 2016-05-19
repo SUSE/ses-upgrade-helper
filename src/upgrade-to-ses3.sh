@@ -257,7 +257,7 @@ rename_ceph_user_and_group () {
     get_permission || return "$?"
 
     # Only perform the rename if old_cephadm_user exists.
-    if ! getent passwd "$old_cephadm_user" >/dev/null
+    if getent passwd "$old_cephadm_user" >/dev/null
     then
         # Rename old_cephadm_user to new_cephadm_user (ceph -> cephadm).
         # TODO: more clever error handling.
