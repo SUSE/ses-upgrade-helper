@@ -252,6 +252,7 @@ stop_ceph_daemons () {
 rename_ceph_user_and_group () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
     local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
+    local func_ret="$success"
 
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
@@ -261,8 +262,12 @@ rename_ceph_user_and_group () {
     then
         # Rename old_cephadm_user to new_cephadm_user (ceph -> cephadm).
         # TODO: more clever error handling.
-        usermod -l "$new_cephadm_user" "$old_cephadm_user"
+        usermod -l "$new_cephadm_user" "$old_cephadm_user" || func_ret="$failure"
+    else
+        func_ret="$skipped"
     fi
+
+    return "$func_ret"
 }
 
 disable_radosgw_services () {
