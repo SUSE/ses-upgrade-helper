@@ -375,6 +375,41 @@ enable_radosgw_services () {
     fi
 }
 
+# Jewel based radosgw zones contain a new "meta_heap" structure which need a
+# corresponding pool: "${zone_name}.rgw.meta"
+populate_radosgw_zone_meta_heap () {
+    local not_complete=false
+
+    # Preflight
+    radosgw-admin --version &>/dev/null || return "$skipped"
+    get_permission || return "$?"
+
+    local zone_list=$(radosgw-admin zone list) || return "$failed"
+    zone_list="${zone_list//$'\n'/}" # Flatten zone_list.
+
+    local G_IFS="$IFS"
+    local IFS=','
+    zone_arr=( $(echo "$zone_list" | grep -o "zones.*" | awk '{for(i=3;i<=NF-1;++i)printf $i}') )
+    IFS="$G_IFS"
+
+    for zone in "${zone_arr[@]}"
+    do
+	zone="${zone%\"}" # Remove leading quotes.
+	zone="${zone#\"}" # Remove trailing quotes.
+	local zone_file="/tmp/${zone}.json"
+	radosgw-admin zone get --rgw-zone="${zone}" > "$zone_file" || not_complete=true
+	sed -i "s/\"metadata_heap\": \"\"/\"metadata_heap\": \"${zone}.rgw.meta\"/" "$zone_file" || not_complete=true
+	radosgw-admin zone set --rgw-zone="${zone}" < "$zone_file" || not_complete=true
+	rm "$zone_file"
+    done
+
+    # If we failed at least once above, indicate this to the user.
+    if [ "$not_complete" = true ]
+    then
+       return "$failed"
+    fi
+}
+
 finish () {
     # TODO: Noop for now.
     :
@@ -440,6 +475,14 @@ func_descs+=(
 ==========================
 Now that the ceph packages have been upgraded, we re-enable the RGW
 services using the SES3 naming convention."
+)
+func_names+=("populate_radosgw_zone_meta_heap")
+func_descs+=(
+"Populate RADOSGW zone metadata heap with to-be-created pool
+===========================================================
+SES2 did not contain a metadata heap structure as part of a RADOSGW zone. When
+upgrading to SES3, the zone configuration must be modified to contain a metadata
+heap pool, which will then be created (it not present) on RADOSGW start."
 )
 func_names+=("finish")
 func_descs+=(
