@@ -158,7 +158,7 @@ get_permission () {
 run_func () {
     if [ "$#" -ne 4 ]
     then
-        out_err "$FUNCNAME: Too few arguments. Provide four"
+        out_err "$FUNCNAME: Invalid number of arguments. Please provide four."
         exit 1
     fi
 
