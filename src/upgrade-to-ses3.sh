@@ -308,7 +308,10 @@ disable_restart_on_update () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
-    while IFS="=" read key val
+    local G_IFS="$IFS" # Save global $IFS.
+    local IFS="="      # Local $IFS used in read loop below.
+
+    while read key val
     do
         case "$key" in
             "$ceph_auto_restart_on_upgrade_var")
@@ -319,6 +322,8 @@ disable_restart_on_update () {
                 ;;
         esac
     done <"$ceph_sysconfig_file"
+    # Restore local $IFS to global version.
+    IFS="$G_IFS"
 
     sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=no/" "$ceph_sysconfig_file"
 }
