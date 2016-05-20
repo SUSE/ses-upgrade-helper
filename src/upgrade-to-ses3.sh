@@ -156,9 +156,9 @@ get_permission () {
 # If empty $msg parameter passed, we will use the get_permission() default.
 # If empty $desc parameter passed, no function description will be output.
 run_func () {
-    if [ "$#" -lt 4 ]
+    if [ "$#" -ne 4 ]
     then
-        out_err "$FUNCNAME: Too few arguments."
+        out_err "$FUNCNAME: Too few arguments. Provide four"
         exit 1
     fi
 
