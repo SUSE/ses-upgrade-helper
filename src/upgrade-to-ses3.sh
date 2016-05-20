@@ -19,7 +19,7 @@
 # ==============================================================================
 
 # Various globals
-DEBUG=true
+DEBUG=false
 scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 usage="usage: $scriptname\n"
@@ -84,12 +84,14 @@ out_info () {
 
 # Be sure that the user wants to abort the upgrade process.
 confirm_abort () {
-    local msg="Are you sure you want to abort? - Y[es]/N[o] (N)"
+    local msg="Are you sure you want to abort?"
+    local answers="Y[es]/N[o] (N)"
+    local prompt="[$msg - $answers]> "
     local choice=""
 
     while [ 1 ]
     do
-        out_red "$msg: "
+	out_red "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
@@ -124,14 +126,16 @@ abort () {
     exit
 }
 
-# Returns $yes on Yes and $no on No and $aborted on Abort.
+# Returns $yes on Yes, $no on No and $aborted on Abort.
 get_permission () {
-    local msg="Run this operation? - Y[es]/N[o]/A[bort] (Y)"
+    local msg="Run this operation?"
+    local answers="Y[es]/N[o]/A[bort] (Y)"
+    local prompt="[$msg - $answers]> "
     local choice=""
 
     while [ 1 ]
     do
-        printf "$msg: "
+	printf "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss] | "")
@@ -171,8 +175,8 @@ run_func () {
     local track=$1
     shift
 
-    out_debug "DEBUG: about to run ${func}()"
-    out_white "\n${desc}\n"
+    out_debug "\nDEBUG: about to run ${func}()"
+    out_white "\n\n${desc}\n\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
@@ -182,30 +186,34 @@ run_func () {
     #      ii.  1 - did not run.
     #      iii. 2 - failure.
     #      iv.  3 - abort
-    "$func" "$@"
-    local func_ret=$?
-    case $func_ret in
-        "$success")
-	    [[ "$track" = true ]] && func_done[$index]=true
-            ;;
-        "$skipped")
-            # No-op. User does not wish to run $func.
-	    out_white "Skipped!\n"
-            ;;
-        "$failure")
-	    # TODO: We hit some problem... Handle it here, or let each operation
-	    #       handle itself, or...?
-	    out_red "Failed!\n"
-	    ;;
-	"$aborted")
-            # User aborted the process
-            abort
-            ;;
-        *)
-            # No-op. Do nothing.
-            :
-            ;;
-    esac
+    local func_ret="$failure"
+    while [ "$func_ret" = "$failure" ]
+    do
+	"$func" "$@"
+	func_ret="$?"
+	case $func_ret in
+	    "$success")
+		[[ "$track" = true ]] && func_done[$index]=true
+		;;
+	    "$skipped")
+		# No-op. User does not wish to run $func.
+		out_white "Skipped!\n"
+		;;
+	    "$failure")
+		# TODO: We hit some problem... Handle it here, or let each operation
+		#       handle itself, or...?
+		out_red "Failed!\n"
+		;;
+	    "$aborted")
+		# User aborted the process
+		abort
+		;;
+	    *)
+		# No-op. Do nothing.
+		:
+		;;
+	esac
+    done
 
     return "$func_ret"
 }
@@ -453,7 +461,10 @@ done
 # main
 # ------------------------------------------------------------------------------
 
-out_green "SES2.X to SES3 Upgrade${txtnorm}\n\n"
+out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_green "===== SES2.X to SES3 Upgrade =====\n"
+out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+
 out_green "Running Pre-flight Checks...\n"
 out_green "============================\n"
 
@@ -467,7 +478,7 @@ then
     abort
 fi
 
-out_green "Pre-flight Checks Succeeded!\n"
+out_green "\nPre-flight Checks Succeeded!\n"
 out_green "============================\n"
 
 for i in "${!func_names[@]}"
@@ -475,6 +486,8 @@ do
     run_func "${func_names[$i]}" "${func_descs[$i]}" "$i" true
 done
 
-out_green "\nSES2.X to SES3 Upgrade Completed\n\n"
+out_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_green "===== SES2.X to SES3 Upgrade Completed =====\n"
+out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 
 output_incomplete_functions
