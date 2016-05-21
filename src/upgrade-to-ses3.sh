@@ -163,7 +163,7 @@ run_func () {
     if [ "$#" -ne 4 ]
     then
         out_err "$FUNCNAME: Invalid number of arguments. Please provide four."
-        exit 1
+        exit "$failure"
     fi
 
     local func=$1
@@ -300,7 +300,7 @@ disable_radosgw_services () {
     # If we failed at least once above, indicate this to the user.
     if [ "$not_complete" = true ]
     then
-       return "$failed"
+       return "$failure"
     fi
 }
 
@@ -376,7 +376,7 @@ enable_radosgw_services () {
     # If we failed at least once above, indicate this to the user.
     if [ "$not_complete" = true ]
     then
-       return "$failed"
+       return "$failure"
     fi
 }
 
@@ -389,7 +389,7 @@ populate_radosgw_zone_meta_heap () {
     radosgw-admin --version &>/dev/null || return "$skipped"
     get_permission || return "$?"
 
-    local zone_list=$(radosgw-admin zone list) || return "$failed"
+    local zone_list=$(radosgw-admin zone list) || return "$failure"
     zone_list="${zone_list//$'\n'/}" # Flatten zone_list.
 
     local G_IFS="$IFS"
@@ -411,7 +411,7 @@ populate_radosgw_zone_meta_heap () {
     # If we failed at least once above, indicate this to the user.
     if [ "$not_complete" = true ]
     then
-       return "$failed"
+       return "$failure"
     fi
 }
 
