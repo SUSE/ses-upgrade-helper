@@ -122,7 +122,7 @@ output_incomplete_functions () {
 abort () {
     out_red "Aborting...\n\n"
     output_incomplete_functions
-    exit
+    exit "$aborted"
 }
 
 # Returns $yes on Yes, $no on No and $aborted on Abort.
