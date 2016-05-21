@@ -44,7 +44,6 @@ func_descs=() # Array that will contain corresponding function descriptions.
 funcs_done=() # Array that will whether corresponding functions have completed
 preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
 preflight_check_descs=() # Array of preflight function descriptions.
-preflight_passed=true    # Assume global preflight checks will succeed.
 
 txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
@@ -123,7 +122,7 @@ output_incomplete_functions () {
 abort () {
     out_red "Aborting...\n\n"
     output_incomplete_functions
-    exit
+    exit "$aborted"
 }
 
 # Returns $yes on Yes, $no on No and $aborted on Abort.
@@ -132,6 +131,8 @@ get_permission () {
     local answers="Y[es]/N[o]/A[bort] (Y)"
     local prompt="[$msg - $answers]> "
     local choice=""
+
+    [[ "$interactive" = false ]] && return "$yes"
 
     while true
     do
@@ -200,9 +201,10 @@ run_func () {
 		out_white "Skipped!\n"
 		;;
 	    "$failure")
-		# TODO: We hit some problem... Handle it here, or let each operation
-		#       handle itself, or...?
+                # Interactive mode failure case fails the current upgrade operation
+                # and continues. Non-interactive mode aborts on failure.
 		out_red "Failed!\n"
+                [[ "$interactive" = false ]] && abort
 		;;
 	    "$aborted")
 		# User aborted the process
@@ -332,7 +334,12 @@ zypper_dup () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
-    zypper dist-upgrade || return "$failure"
+    if [ "$interactive" = true ]
+    then
+	zypper dist-upgrade || return "$failure"
+    else
+	zypper --non-interactive --terse dist-upgrade || return "$failure"
+    fi
 }
 
 restore_original_restart_on_update () {
@@ -509,6 +516,21 @@ done
 # main
 # ------------------------------------------------------------------------------
 
+# By default, we run as an interactive script. Pass --non-interactive to run in,
+# you guessed it, non interactive mode.
+interactive=true
+
+# Parse our command line options
+while [ "$#" -ge 1 ]
+do
+    case $1 in
+	--non-interactive)
+	    interactive=false
+	    ;;
+    esac
+    shift
+done
+
 out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
 out_green "===== SES2.X to SES3 Upgrade =====\n"
 out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
@@ -516,15 +538,15 @@ out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 out_green "Running Pre-flight Checks...\n"
 out_green "============================\n"
 
+# A small caveat to interactive mode, our global pre-flights need to run in
+# non-interactive mode.
+saved_interactive_mode="$interactive"
+interactive=false
 for i in "${!preflight_check_funcs[@]}"
 do
-    run_func "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}" "$i" false || preflight_passed=false
+    run_func "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}" "$i" false
 done
-
-if [ "$preflight_passed" = false ]
-then
-    abort
-fi
+interactive="$saved_interactive_mode"
 
 out_green "\nPre-flight Checks Succeeded!\n"
 out_green "============================\n"
