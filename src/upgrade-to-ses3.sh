@@ -89,7 +89,7 @@ confirm_abort () {
     local prompt="[$msg - $answers]> "
     local choice=""
 
-    while [ 1 ]
+    while true
     do
 	out_red "$prompt"
         read choice
@@ -133,7 +133,7 @@ get_permission () {
     local prompt="[$msg - $answers]> "
     local choice=""
 
-    while [ 1 ]
+    while true
     do
 	printf "$prompt"
         read choice
