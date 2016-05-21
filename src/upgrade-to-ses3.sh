@@ -87,7 +87,7 @@ confirm_abort () {
     local msg="Are you sure you want to abort? - Y[es]/N[o] (N)"
     local choice=""
 
-    while [ 1 ]
+    while true
     do
         out_red "$msg: "
         read choice
@@ -129,7 +129,7 @@ get_permission () {
     local msg="Run this operation? - Y[es]/N[o]/A[bort] (Y)"
     local choice=""
 
-    while [ 1 ]
+    while true
     do
         printf "$msg: "
         read choice
