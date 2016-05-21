@@ -237,7 +237,7 @@ running_as_root () {
 preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
 "Checking if script is running as root
-====================================
+=====================================
 su/sudo are just fine."
 )
 
