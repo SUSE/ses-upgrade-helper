@@ -300,10 +300,7 @@ disable_radosgw_services () {
     done
 
     # If we failed at least once above, indicate this to the user.
-    if [ "$not_complete" = true ]
-    then
-       return "$failure"
-    fi
+    [[ "$not_complete" = true ]] && return "$failure" || return "$success"
 }
 
 disable_restart_on_update () {
@@ -381,10 +378,7 @@ enable_radosgw_services () {
     done
 
     # If we failed at least once above, indicate this to the user.
-    if [ "$not_complete" = true ]
-    then
-       return "$failure"
-    fi
+    [[ "$not_complete" = true ]] && return "$failure" || return "$success"
 }
 
 # Jewel based radosgw zones contain a new "meta_heap" structure which need a
@@ -416,10 +410,7 @@ populate_radosgw_zone_meta_heap () {
     done
 
     # If we failed at least once above, indicate this to the user.
-    if [ "$not_complete" = true ]
-    then
-       return "$failure"
-    fi
+    [[ "$not_complete" = true ]] && return "$failure" || return "$success"
 }
 
 finish () {
