@@ -39,9 +39,9 @@ ceph_auto_restart_on_upgrade_val=""
 
 # Function arrays. Since bash can't do multidimensional associate arrays, this
 # seemed like a decent fallback.
-func_names=() # Array that will contain function names.
-func_descs=() # Array that will contain corresponding function descriptions.
-funcs_done=() # Array to which we will append names of functions that have completed
+upgrade_funcs=() # Array that will contain upgrade function names.
+upgrade_func_descs=() # Array that will contain corresponding upgrade function descriptions.
+upgrade_funcs_done=() # Array to which we will append names of upgrade functions that have completed
 preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
 preflight_check_descs=() # Array of preflight function descriptions.
 
@@ -108,11 +108,11 @@ confirm_abort () {
 
 output_incomplete_functions () {
     out_green "Functions which have not yet been called or have failed:\n"
-    for i in "${!func_names[@]}"
+    for i in "${!upgrade_funcs[@]}"
     do
-	if [ "${func_done[$i]}" = false ]
+	if [ "${upgrade_funcs_done[$i]}" = false ]
 	then
-	    out_white "${func_names[$i]}\n"
+	    out_white "${upgrade_funcs[$i]}\n"
 	fi
     done
     out_green "These functions should now be performed manually per:\n"
@@ -157,20 +157,18 @@ get_permission () {
     done
 }
 
-# Wrapper to query user whether they really want to run a particular function.
-# If empty $msg parameter passed, we will use the get_permission() default.
-# If empty $desc parameter passed, no function description will be output.
-run_func () {
-    # assert that we have four arguments - no more, no less!
-    [[ "$#" -ne 4 ]] && out_err "$FUNCNAME: Invalid number of arguments. Please provide four." && abort
+# Wrapper to query user whether they really want to run a particular upgrade
+# function.
+run_upgrade_func () {
+    expected_arg_num=3
+    # assert that we have $expected_arg_num arguments - no more, no less!
+    [[ "$#" != "$expected_arg_num" ]] && out_err "$FUNCNAME: Invalid number of arguments. Please provide ${expected_arg_num}.\n" && abort
 
     local func=$1
     shift
     local desc=$1
     shift
     local index=$1
-    shift
-    local track=$1
     shift
 
     out_debug "\nDEBUG: about to run ${func}()"
@@ -191,7 +189,7 @@ run_func () {
 	func_ret="$?"
 	case $func_ret in
 	    "$success")
-		[[ "$track" = true ]] && func_done[$index]=true
+		upgrade_funcs_done[$index]=true
 		;;
 	    "$skipped")
 		# No-op. User does not wish to run $func.
@@ -433,77 +431,77 @@ finish () {
     :
 }
 
-func_names+=("set_crush_tunables")
-func_descs+=(
+upgrade_funcs+=("set_crush_tunables")
+upgrade_func_descs+=(
 "Set CRUSH tunables
 ==================
 This will set OSD CRUSH tunables to optimal. WARNING: if you have customized
 tunables, select \"No\" at the prompt."
 )
-func_names+=("stop_ceph_daemons")
-func_descs+=(
+upgrade_funcs+=("stop_ceph_daemons")
+upgrade_func_descs+=(
 "Stop Ceph Daemons
 =================
 Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
-func_names+=("rename_ceph_user_and_group")
-func_descs+=(
+upgrade_funcs+=("rename_ceph_user_and_group")
+upgrade_func_descs+=(
 "Rename Ceph user and group
 ==========================
 SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
 Ceph daemons run as user \"ceph\" in group \"ceph\". This will
 rename the adminstrative user \"ceph\" to \"cephadm\"."
 )
-func_names+=("disable_radosgw_services")
-func_descs+=(
+upgrade_funcs+=("disable_radosgw_services")
+upgrade_func_descs+=(
 "Disable SES2 RADOSGW services
 =============================
 Since the naming convention has changed, before upgrade we need to temporarily
 disable the RGW services. They will be re-enabled after the upgrade."
 )
-func_names+=("disable_restart_on_update")
-func_descs+=(
+upgrade_funcs+=("disable_restart_on_update")
+upgrade_func_descs+=(
 "Disable CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
 =====================================================
 Since we will be performing additional steps after the upgrade, we do not
 want the services to be restarted automatically. We will restart them manually
 after the upgrade and restore the sysconfig option to is original value"
 )
-func_names+=("zypper_dup")
-func_descs+=(
+upgrade_funcs+=("zypper_dup")
+upgrade_func_descs+=(
 "Zypper distribution upgrade
 ===========================
 This step upgrades the system (zypper dist-upgrade)"
 )
-func_names+=("restore_original_restart_on_update")
-func_descs+=(
+upgrade_funcs+=("restore_original_restart_on_update")
+upgrade_func_descs+=(
 "Restore CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
 =====================================================
 Restores this sysconfig option to the value saved in the \"Disable\" step above."
 )
-func_names+=("chown_var_lib_ceph")
-func_descs+=(
+upgrade_funcs+=("chown_var_lib_ceph")
+upgrade_func_descs+=(
 "Set ownership of /var/lib/ceph
 ==============================
 This step may take a long time if your OSDs have a lot of data in them."
 )
-func_names+=("enable_radosgw_services")
-func_descs+=(
+upgrade_funcs+=("enable_radosgw_services")
+upgrade_func_descs+=(
 "Re-enable RADOSGW services
 ==========================
 Now that the ceph packages have been upgraded, we re-enable the RGW
 services using the SES3 naming convention."
 )
-func_names+=("populate_radosgw_zone_meta_heap")
-func_descs+=(
+upgrade_funcs+=("populate_radosgw_zone_meta_heap")
+upgrade_func_descs+=(
 "Populate RADOSGW zone metadata heap with to-be-created pool
 ===========================================================
 SES2 did not contain a metadata heap structure as part of a RADOSGW zone. When
 upgrading to SES3, the zone configuration must be modified to contain a metadata
 heap pool, which will then be created (it not present) on RADOSGW start."
 )
-func_names+=("finish")
-func_descs+=(
+upgrade_funcs+=("finish")
+upgrade_func_descs+=(
 "Update has been Finished
 ========================
 Please go ahead and:
@@ -513,9 +511,9 @@ Please go ahead and:
 )
 
 # Functions have not yet been called. Set their done flags to false.
-for i in "${!func_names[@]}"
+for i in "${!upgrade_funcs[@]}"
 do
-    func_done[$i]=false
+    upgrade_funcs_done[$i]=false
 done
 
 # ------------------------------------------------------------------------------
@@ -557,9 +555,9 @@ interactive="$saved_interactive_mode"
 out_green "\nPre-flight Checks Succeeded!\n"
 out_green "============================\n"
 
-for i in "${!func_names[@]}"
+for i in "${!upgrade_funcs[@]}"
 do
-    run_func "${func_names[$i]}" "${func_descs[$i]}" "$i" true
+    run_upgrade_func "${upgrade_funcs[$i]}" "${upgrade_func_descs[$i]}" "$i"
 done
 
 out_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
