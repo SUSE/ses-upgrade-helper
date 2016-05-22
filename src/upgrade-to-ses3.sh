@@ -161,11 +161,8 @@ get_permission () {
 # If empty $msg parameter passed, we will use the get_permission() default.
 # If empty $desc parameter passed, no function description will be output.
 run_func () {
-    if [ "$#" -ne 4 ]
-    then
-        out_err "$FUNCNAME: Invalid number of arguments. Please provide four."
-        exit "$failure"
-    fi
+    # assert that we have four arguments - no more, no less!
+    [[ "$#" -ne 4 ]] && out_err "$FUNCNAME: Invalid number of arguments. Please provide four." && abort
 
     local func=$1
     shift
