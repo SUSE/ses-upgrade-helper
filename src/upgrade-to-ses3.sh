@@ -234,13 +234,31 @@ running_as_root () {
     return "$success"
 }
 
+# Returns $success if user ceph is not being used to run any programs, otherwise
+# $failure. In SES2, the user "ceph" was used by ceph-deploy. In SES3, all ceph
+# daemons run as user "ceph", so we need to perform a rename later on.
+user_ceph_not_in_use () {
+    ps -u ceph &>/dev/null
+    # $? == $success implies that at least one process is being run as ceph. Thus,
+    # it is actually the $failure case.
+    [[ "$?" = "$success" ]] && return "$failure" || return "$success"
+}
+
 preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
 "Checking if script is running as root
-====================================
+=====================================
 su/sudo are just fine."
 )
-
+preflight_check_funcs+=("user_ceph_not_in_use")
+preflight_check_descs+=(
+"Check if user \"ceph\" is being used to run any programs
+======================================================
+In SES2, the user \"ceph\" was created to run ceph-deploy. In SES3, all Ceph
+daemons run as user \"ceph\". During the upgrade process, we provide the option
+to rename \"ceph\", thus we need to ensure that no processes are currently
+running as this user. Please terminate any such processes."
+)
 # ------------------------------------------------------------------------------
 # Operations
 # ------------------------------------------------------------------------------
