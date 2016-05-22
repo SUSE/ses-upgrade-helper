@@ -160,7 +160,7 @@ get_permission () {
 # Wrapper to query user whether they really want to run a particular upgrade
 # function.
 run_upgrade_func () {
-    expected_arg_num=3
+    local expected_arg_num=3
     # assert that we have $expected_arg_num arguments - no more, no less!
     [[ "$#" != "$expected_arg_num" ]] && out_err "$FUNCNAME: Invalid number of arguments. Please provide ${expected_arg_num}.\n" && abort
 
