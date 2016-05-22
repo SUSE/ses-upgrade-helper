@@ -31,6 +31,7 @@ skipped=1
 no=1
 failure=2
 aborted=3
+assert_err=255
 
 ceph_sysconfig_file="/etc/sysconfig/ceph"
 # Pulled from /etc/sysconfig/ceph and used to store original value.
@@ -58,17 +59,17 @@ out_debug () {
 
 out_red () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtred}${msg}${txtnorm}" || printf "$msg"
+    [[ "$interactive" = true ]] && printf "${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_white () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtwhite}${msg}${txtnorm}" || printf "$msg"
+    [[ "$interactive" = true ]] && printf "${txtbold}${txtwhite}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_green () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtgreen}${msg}${txtnorm}" || printf "$msg"
+    [[ "$interactive" = true ]] && printf "${txtbold}${txtgreen}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_err () {
@@ -157,12 +158,39 @@ get_permission () {
     done
 }
 
+# Takes two arguments: the actual number of arguments passed to the function
+# and the expected number.
+assert_number_of_args () {
+    local funcname=$1
+    local actual=$2
+    local expected=$3
+    # assert that we have $expected number of arguments - no more, no less!
+    if [[ "$actual" != "$expected" ]]
+    then
+        out_err "${funcname}: Invalid number of arguments (${actual}). Please provide ${expected}.\n"
+	exit $assert_err
+    fi
+}
+
+run_preflight_check () {
+    assert_number_of_args $FUNCNAME $# 2
+
+    local func=$1
+    shift
+    local desc=$1
+    shift
+
+    out_debug "DEBUG: about to run pre-flight check ${func}()"
+    out_white "${desc}\n"
+    out_white "\n"
+
+    "$func" "$@"
+}
+
 # Wrapper to query user whether they really want to run a particular upgrade
 # function.
 run_upgrade_func () {
-    expected_arg_num=3
-    # assert that we have $expected_arg_num arguments - no more, no less!
-    [[ "$#" != "$expected_arg_num" ]] && out_err "$FUNCNAME: Invalid number of arguments. Please provide ${expected_arg_num}.\n" && abort
+    assert_number_of_args $FUNCNAME $# 3
 
     local func=$1
     shift
@@ -219,31 +247,19 @@ run_upgrade_func () {
 # Global pre-flight functions.
 # ------------------------------------------------------------------------------
 running_as_root () {
-    # Script needs to be run as root.
-    if [ "$EUID" -ne 0 ]
-    then
-	out_err "Please run this script as root.\n"
-	return "$failure"
-    fi
-
-    return "$success"
+    test "$EUID" -eq 0
 }
 
-# Returns $success if user ceph is not being used to run any programs, otherwise
-# $failure. In SES2, the user "ceph" was used by ceph-deploy. In SES3, all ceph
-# daemons run as user "ceph", so we need to perform a rename later on.
 user_ceph_not_in_use () {
-    ps -u ceph &>/dev/null
-    # $? == $success implies that at least one process is being run as ceph. Thus,
-    # it is actually the $failure case.
-    [[ "$?" = "$success" ]] && return "$failure" || return "$success"
+    ! ps -u ceph &>/dev/null
 }
 
 preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
 "Checking if script is running as root
 =====================================
-su/sudo are just fine."
+The upgrade script must run as root (su/sudo are fine as long as no user
+\"ceph\" is involved)."
 )
 preflight_check_funcs+=("user_ceph_not_in_use")
 preflight_check_descs+=(
@@ -537,23 +553,26 @@ done
 
 out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
 out_green "===== SES2.X to SES3 Upgrade =====\n"
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_green "\n"
+out_green "Running pre-flight checks...\n"
+out_green "\n"
 
-out_green "Running Pre-flight Checks...\n"
-out_green "============================\n"
-
-# A small caveat to interactive mode, our global pre-flights need to run in
-# non-interactive mode.
-saved_interactive_mode="$interactive"
-interactive=false
+preflight_failures=false
 for i in "${!preflight_check_funcs[@]}"
 do
-    run_func "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}" "$i" false
+    if run_preflight_check "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}"
+    then
+        out_green "PASSED\n\n"
+    else
+        out_red "FAILED\n\n"
+        preflight_failures=true
+    fi
 done
-interactive="$saved_interactive_mode"
+[[ "$preflight_failures" = true ]] && out_white "One or more pre-flight checks failed\n" && exit 255
 
-out_green "\nPre-flight Checks Succeeded!\n"
-out_green "============================\n"
+out_green "\n"
+out_green "\nRunning upgrade functions...\n"
 
 for i in "${!upgrade_funcs[@]}"
 do
