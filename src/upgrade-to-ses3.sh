@@ -273,14 +273,6 @@ running as this user. Please terminate any such processes."
 # ------------------------------------------------------------------------------
 # Operations
 # ------------------------------------------------------------------------------
-set_crush_tunables () {
-    # TODO: Preflight maybe should include checking if the cluster is up?
-    ceph --version &>/dev/null || return "$skipped"
-    get_permission || return "$?"
-
-    ceph osd crush tunables optimal || return "$failure"
-}
-
 stop_ceph_daemons () {
     # TODO: Perform pre-flight checks
     get_permission || return "$?"
@@ -438,13 +430,6 @@ finish () {
     :
 }
 
-upgrade_funcs+=("set_crush_tunables")
-upgrade_func_descs+=(
-"Set CRUSH tunables
-==================
-This will set OSD CRUSH tunables to optimal. WARNING: if you have customized
-tunables, select \"No\" at the prompt."
-)
 upgrade_funcs+=("stop_ceph_daemons")
 upgrade_func_descs+=(
 "Stop Ceph Daemons
