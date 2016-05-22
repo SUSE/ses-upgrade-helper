@@ -31,6 +31,7 @@ skipped=1
 no=1
 failure=2
 aborted=3
+assert_err=255
 
 ceph_sysconfig_file="/etc/sysconfig/ceph"
 # Pulled from /etc/sysconfig/ceph and used to store original value.
@@ -157,10 +158,22 @@ get_permission () {
     done
 }
 
+# Takes two arguments: the actual number of arguments passed to the function
+# and the expected number.
+assert_number_of_args () {
+    local funcname=$1
+    local actual=$2
+    local expected=$3
+    # assert that we have $expected number of arguments - no more, no less!
+    if [[ "$actual" != "$expected" ]]
+    then
+        out_err "${funcname}: Invalid number of arguments (${actual}). Please provide ${expected}.\n"
+	exit $assert_err
+    fi
+}
+
 run_preflight_check () {
-    local expected_arg_num=2
-    # assert that we have $expected_arg_num arguments - no more, no less!
-    [[ "$#" != "$expected_arg_num" ]] && out_err "$FUNCNAME: Invalid number of arguments. Please provide ${expected_arg_num}.\n" && abort
+    assert_number_of_args $FUNCNAME $# 2
 
     local func=$1
     shift
@@ -177,9 +190,7 @@ run_preflight_check () {
 # Wrapper to query user whether they really want to run a particular upgrade
 # function.
 run_upgrade_func () {
-    local expected_arg_num=3
-    # assert that we have $expected_arg_num arguments - no more, no less!
-    [[ "$#" != "$expected_arg_num" ]] && out_err "$FUNCNAME: Invalid number of arguments. Please provide ${expected_arg_num}.\n" && abort
+    assert_number_of_args $FUNCNAME $# 3
 
     local func=$1
     shift
