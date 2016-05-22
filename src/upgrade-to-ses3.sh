@@ -41,7 +41,7 @@ ceph_auto_restart_on_upgrade_val=""
 # seemed like a decent fallback.
 func_names=() # Array that will contain function names.
 func_descs=() # Array that will contain corresponding function descriptions.
-funcs_done=() # Array that will whether corresponding functions have completed
+funcs_done=() # Array to which we will append names of functions that have completed
 preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
 preflight_check_descs=() # Array of preflight function descriptions.
 
@@ -58,27 +58,27 @@ out_debug () {
 
 out_red () {
     local msg=$1
-    printf "${txtbold}${txtred}${msg}${txtnorm}"
+    [[ "$interactive" = true ]] && printf "${txtbold}${txtred}${msg}${txtnorm}" || printf "$msg"
 }
 
 out_white () {
     local msg=$1
-    printf "${txtbold}${txtwhite}${msg}${txtnorm}"
+    [[ "$interactive" = true ]] && printf "${txtbold}${txtwhite}${msg}${txtnorm}" || printf "$msg"
 }
 
 out_green () {
     local msg=$1
-    printf "${txtbold}${txtgreen}${msg}${txtnorm}"
+    [[ "$interactive" = true ]] && printf "${txtbold}${txtgreen}${msg}${txtnorm}" || printf "$msg"
 }
 
 out_err () {
     local msg=$1
-    out_red "ERROR: ${msg}"
+    out_red "ERROR: $msg"
 }
 
 out_info () {
     local msg="$1"
-    out_white "INFO: ${msg}"
+    out_white "INFO: $msg"
 }
 
 # Be sure that the user wants to abort the upgrade process.
