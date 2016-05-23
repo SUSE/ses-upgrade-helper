@@ -466,7 +466,7 @@ upgrade_func_descs+=(
 This step upgrades the system by running \"zypper dist-upgrade\".
 If you prefer to upgrade by some other means (e.g. SUSE Manager),
 do that now, but do not reboot the system. Select Skip when the upgrade
-finishes.
+finishes."
 )
 upgrade_funcs+=("restore_original_restart_on_update")
 upgrade_func_descs+=(
