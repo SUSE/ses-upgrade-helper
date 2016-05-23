@@ -83,6 +83,16 @@ out_info () {
     out_white "INFO: $msg"
 }
 
+# echo list of radosgw configuration section names found in ceph.conf. These
+# correspond to radosgw instances.
+get_radosgw_conf_section_names () {
+    local rgw_conf_section_prefix="client.radosgw"
+
+    ceph-conf --version &>/dev/null || return "$failure"
+
+    ceph-conf -c "$ceph_conf_file" --list-sections "$rgw_conf_section_prefix" 2>/dev/null || return "$failure"
+}
+
 # Be sure that the user wants to abort the upgrade process.
 confirm_abort () {
     local msg="Are you sure you want to abort?"
@@ -298,11 +308,14 @@ disable_radosgw_services () {
     local rgw_service_prefix="ceph-radosgw@"
     local not_complete=false
 
-    # TODO: Perform pre-flight checks
+    # Local preflight checks
     ceph-conf --version &>/dev/null || return "$skipped"
     get_permission || return "$?"
+    # If we are unable to get an echo'd string (which can of course be empty)
+    # of section names, then we return $failure.
+    radosgw_conf_section_names=$(get_radosgw_conf_section_names) || return "$failure"
 
-    for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
+    for rgw_conf_section_name in $radosgw_conf_section_names
     do
         # rgw_conf_section_name -> [client.radosgw.some_host_name]
         # Derived rgw_service_instace -> some_host_name
@@ -376,11 +389,14 @@ enable_radosgw_services () {
     local rgw_instance_prefix="radosgw"
     local not_complete=false
 
-    # TODO: Perform pre-flight checks
+    # Local preflight checks.
     ceph-conf --version &>/dev/null || return "$skipped"
     get_permission || return "$?"
+    # If we are unable to get an echo'd string (which can of course be empty)
+    # of section names, then we return $failure.
+    radosgw_conf_section_names=$(get_radosgw_conf_section_names) || return "$failure"
 
-    for rgw_conf_section_name in $(ceph-conf --list-sections "$rgw_conf_section_prefix")
+    for rgw_conf_section_name in $radosgw_conf_section_names
     do
         # rgw_conf_section_name -> [client.radosgw.some_host_name]
         # Derived rgw_service_instace -> some_host_name
