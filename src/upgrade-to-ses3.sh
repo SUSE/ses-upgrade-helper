@@ -411,7 +411,7 @@ enable_radosgw_services () {
 }
 
 standardize_radosgw_logfile_location () {
-    local log_file_exp="\(log_file\|log file\) = \/var\/log\/ceph-radosgw\/client.radosgw.*"
+    local log_file_exp="\(log_file\|log file\) = \/var\/log\/ceph-radosgw\/.*client.radosgw*"
     # Local preflight checks.
     get_permission || return "$?"
 
