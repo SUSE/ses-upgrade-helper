@@ -132,7 +132,7 @@ output_incomplete_functions () {
 }
 
 abort () {
-    out_red "Aborting...\n\n"
+    out_red "\nAborting...\n\n"
     output_incomplete_functions
     exit "$aborted"
 }
