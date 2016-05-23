@@ -268,19 +268,24 @@ user_ceph_not_in_use () {
 
 preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
-"Checking if script is running as root
-=====================================
-The upgrade script must run as root (su/sudo are fine as long as no user
-\"ceph\" is involved)."
+"Check that script is running as root
+====================================
+The upgrade script must run as root. If this check fails, it means you are not
+running it as root (sudo/su are fine as long as they are not run as the
+\"ceph\" user)."
 )
 preflight_check_funcs+=("user_ceph_not_in_use")
 preflight_check_descs+=(
-"Check if user \"ceph\" is being used to run any programs
-======================================================
+"Check for processes owned by user \"ceph\"
+========================================
 In SES2, the user \"ceph\" was created to run ceph-deploy. In SES3, all Ceph
-daemons run as user \"ceph\". During the upgrade process, we provide the option
-to rename \"ceph\", thus we need to ensure that no processes are currently
-running as this user. Please terminate any such processes."
+daemons run as user and group \"ceph\". Since it is preferable to have no
+ordinary \"ceph\" user in the system when the upgrade is performed, this script
+will check if there is an existing \"ceph\" user and rename it to \"cephadm\"
+if it exists. For this rename operation to work, the \"ceph\" user must not be
+in use. (It could be in use, for example, if you logged in as \"ceph\" and ran
+this script using sudo.) If this check fails, find processes owned by user
+\"ceph\" and terminate those processes. Then re-run the script."
 )
 # ------------------------------------------------------------------------------
 # Operations
