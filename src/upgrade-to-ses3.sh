@@ -34,6 +34,7 @@ aborted=3
 assert_err=255
 
 ceph_sysconfig_file="/etc/sysconfig/ceph"
+ceph_conf_file="/etc/ceph/ceph.conf"
 # Pulled from /etc/sysconfig/ceph and used to store original value.
 ceph_auto_restart_on_upgrade_var="CEPH_AUTO_RESTART_ON_UPGRADE"
 ceph_auto_restart_on_upgrade_val=""
@@ -526,6 +527,10 @@ do
 	--non-interactive)
 	    interactive=false
 	    ;;
+        -c | --conf)
+            ceph_conf_file="$2"
+            shift
+            ;;
     esac
     shift
 done
