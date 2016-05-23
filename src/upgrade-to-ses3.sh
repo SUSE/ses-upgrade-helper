@@ -474,59 +474,72 @@ upgrade_func_descs+=(
 "Rename Ceph user and group
 ==========================
 SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
-Ceph daemons run as user \"ceph\" in group \"ceph\". This will
-rename the adminstrative user \"ceph\" to \"cephadm\"."
+Ceph daemons run as user \"ceph\" in group \"ceph\". The upgrade
+scripting will create these with the proper parameters, provided
+they do not exist in the system. Therefore, we now rename any
+existing user \"ceph\" to \"cephadm\". If in doubt, say Y here."
+
 )
 upgrade_funcs+=("disable_radosgw_services")
 upgrade_func_descs+=(
-"Disable SES2 RADOSGW services
-=============================
-Since the naming convention has changed, before upgrade we need to temporarily
-disable the RGW services. They will be re-enabled after the upgrade."
+"Disable SES2 RADOS Gateway services
+===================================
+Since the naming convention has changed, before upgrade we need to
+temporarily disable the RGW services. They will be re-enabled after
+the upgrade. It is safe to answer Y here even if there are no RADOS
+Gateway instances configured on this node."
 )
 upgrade_funcs+=("disable_restart_on_update")
 upgrade_func_descs+=(
 "Disable CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
 =====================================================
-Since we will be performing additional steps after the upgrade, we do not
-want the services to be restarted automatically. We will restart them manually
-after the upgrade and restore the sysconfig option to is original value"
+Since we will be performing additional steps after the upgrade, we do
+not want the services to be restarted automatically. Therefore, this
+step modifies \"/etc/sysconfig/ceph\" to ensure that this option is
+set to \"no\". The previous option is saved so it can be restored after
+the upgrade is completed. If in doubt, answer Y."
 )
 upgrade_funcs+=("zypper_dup")
 upgrade_func_descs+=(
 "Zypper distribution upgrade
 ===========================
-This step upgrades the system by running \"zypper dist-upgrade\".
-If you prefer to upgrade by some other means (e.g. SUSE Manager),
-do that now, but do not reboot the system. Select Skip when the upgrade
-finishes."
+This step upgrades the system by running \"zypper dist-upgrade\". If you
+prefer to upgrade by some other means (e.g. SUSE Manager), do that now, but
+do not reboot the system - just select Skip when the upgrade finishes."
 )
 upgrade_funcs+=("restore_original_restart_on_update")
 upgrade_func_descs+=(
 "Restore CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
 =====================================================
-Restores this sysconfig option to the value saved in the \"Disable\" step above."
+Restores this sysconfig option to the value saved in the \"Disable\" step 
+above."
 )
 upgrade_funcs+=("chown_var_lib_ceph")
 upgrade_func_descs+=(
 "Set ownership of /var/lib/ceph
 ==============================
-This step may take a long time if your OSDs have a lot of data in them."
+This step is critical to the proper functioning of the Ceph cluster and
+should only be skipped if you already recursively changed the ownership
+yourself and are sure you did it correctly. There is no danger in answering
+Yes here even if you have already done this step before."
 )
 upgrade_funcs+=("enable_radosgw_services")
 upgrade_func_descs+=(
-"Re-enable RADOSGW services
-==========================
+"Re-enable RADOS Gateway services
+================================
 Now that the ceph packages have been upgraded, we re-enable the RGW
-services using the SES3 naming convention."
+services using the SES3 naming convention. There is no danger in answering
+Yes here. If there are no RADOS Gateway instances configured on this node,
+the step will be skipped automatically."
 )
 upgrade_funcs+=("standardize_radosgw_logfile_location")
 upgrade_func_descs+=(
-"Configure RADOSGW to log in default location
-============================================
-SES2 configured a custom location for the RADOSGW log file in ceph.conf. To better
-align with upstream, remove this custom \"log_file\" entry and allow RADOSGW to log
-to the default \"/var/log/ceph/\" location."
+"Configure RADOS Gateway instances to log in default location
+============================================================
+SES2 ceph-deploy added a \"log_file\" entry to ceph.conf setting a custom
+location for the RADOS Gateway log file in ceph.conf. In SES3, the best
+practice is to let the RADOS Gateway log to its default location,
+\"/var/log/ceph\", like the other Ceph daemons. If in doubt, just say Yes."
 )
 upgrade_funcs+=("populate_radosgw_zone_meta_heap")
 upgrade_func_descs+=(
