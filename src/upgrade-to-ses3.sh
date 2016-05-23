@@ -550,6 +550,8 @@ done
 # main
 # ------------------------------------------------------------------------------
 
+trap abort INT
+
 # By default, we run as an interactive script. Pass --non-interactive to run in,
 # you guessed it, non interactive mode.
 interactive=true
