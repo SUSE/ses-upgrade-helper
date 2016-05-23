@@ -520,8 +520,8 @@ upgrade_func_descs+=(
 ============================================
 SES2 configured a custom location for the RADOSGW log file in ceph.conf. To better
 align with upstream, remove this custom \"log_file\" entry and allow RADOSGW to log
-to the default \"/var/log/ceph/\" location.
-")
+to the default \"/var/log/ceph/\" location."
+)
 upgrade_funcs+=("populate_radosgw_zone_meta_heap")
 upgrade_func_descs+=(
 "Populate RADOSGW zone metadata heap with to-be-created pool
