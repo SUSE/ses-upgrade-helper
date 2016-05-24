@@ -450,30 +450,67 @@ chown_var_lib_ceph () {
 }
 
 enable_radosgw_services () {
-    local rgw_conf_section_prefix="client.radosgw"
     local rgw_service_prefix="ceph-radosgw@"
     local rgw_instance_prefix="radosgw"
     local not_complete=false
+    local disabled_rgw_instances=()
 
-    # Local preflight checks.
+    # Local preflight checks
     ceph-conf --version &>/dev/null || return "$skipped"
-    get_permission || return "$?"
-    # If we are unable to get an echo'd string (which can of course be empty)
-    # of section names, then we return $failure.
-    radosgw_conf_section_names=$(get_radosgw_conf_section_names) || return "$failure"
-
-    for rgw_conf_section_name in $radosgw_conf_section_names
+    # Check if ceph-radosgw package installed.
+    rpm -qi "$ceph_radosgw_pkg" &>/dev/null || return "$skipped"
+    # Check that $ceph_radosgw_disabled_services_datafile exists. If not, we did
+    # not disable any services in disable_radosgw_services().
+    [[ -e "$ceph_radosgw_disabled_services_datafile" ]] || return "$skipped"
+    # Pull in the rgw instances we disabled in disable_readosgw_services()
+    while read rgw_service_instance
     do
-        # rgw_conf_section_name -> [client.radosgw.some_host_name]
-        # Derived rgw_service_instace -> some_host_name
-        local rgw_service_instance="${rgw_conf_section_name#${rgw_conf_section_prefix}.}"
+        case "$rgw_service_instance" in
+            ''|\#*)
+                continue
+                ;;
+            *)
+                disabled_rgw_instances+=("$rgw_service_instance")
+                ;;
+        esac
+    done <"$ceph_radosgw_disabled_services_datafile"
+    # Don't prompt for permission if no disabled rgw instances, just skip.
+    [[ "${#disabled_rgw_instances[@]}" -eq 0 ]] && return "$skipped"
 
-        # enable ceph-radosgw@radosgw.some_host_name
-        systemctl enable "${rgw_service_prefix}${rgw_instance_prefix}.${rgw_service_instance}" || not_complete=true
+    # Done with our local preflights. Output list of disabled instances that we
+    # want to enable and get permission to do so.
+    out_white "The following RADOSGW instances have been disabled on this node and can now be properly re-enabled:\n"
+    for rgw_service_instance in "${disabled_rgw_instances[@]}"
+    do
+        printf "  $rgw_service_instance\n"
+    done
+    printf "\n"
+    get_permission || return "$?"
+
+    for rgw_service_instance in "${disabled_rgw_instances[@]}"
+    do
+        # Enable ceph-radosgw@radosgw.some_host_name and remove the entry from
+        # $ceph_radosgw_disabled_services_datafile indicating it was successfully
+        # re-enabled.
+        systemctl enable "${rgw_service_prefix}${rgw_instance_prefix}.${rgw_service_instance}" &&
+            sed -i "/^${rgw_service_instance}/d" "$ceph_radosgw_disabled_services_datafile" ||
+                not_complete=true
     done
 
-    # If we failed at least once above, indicate this to the user.
-    [[ "$not_complete" = true ]] && return "$failure" || return "$success"
+    # If we failed at least once above, indicate this to the user and dump the list
+    # of service instances we were not able to enable. This should not happen as
+    # systemctl will happily take any instance name.
+    if [ "$not_complete" = true ]
+    then
+        out_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
+        printf "$ceph_radosgw_disabled_services_datafile:\n"
+        cat "$ceph_radosgw_disabled_services_datafile"
+        printf "\n"
+        return "$failure"
+    else
+        rm "$ceph_radosgw_disabled_services_datafile"
+        return "$success"
+    fi
 }
 
 standardize_radosgw_logfile_location () {
