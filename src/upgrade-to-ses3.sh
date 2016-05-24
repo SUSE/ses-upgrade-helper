@@ -297,7 +297,7 @@ stop_ceph_daemons () {
     systemctl stop ceph.target || return "$failure"
 }
 
-rename_ceph_user_and_group () {
+rename_ceph_user () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
     local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
 
@@ -437,10 +437,10 @@ upgrade_func_descs+=(
 =================
 Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
-upgrade_funcs+=("rename_ceph_user_and_group")
+upgrade_funcs+=("rename_ceph_user")
 upgrade_func_descs+=(
-"Rename Ceph user and group
-==========================
+"Rename Ceph user
+================
 SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
 Ceph daemons run as user \"ceph\" in group \"ceph\". The upgrade
 scripting will create these with the proper parameters, provided
