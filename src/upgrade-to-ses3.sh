@@ -22,7 +22,6 @@
 DEBUG=false
 scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
-usage="usage: $scriptname\n"
 
 # Codes
 success=0
@@ -53,6 +52,18 @@ txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
 txtwhite=$(tput setaf 7)
 
+usage_msg="usage: $scriptname [options]
+options:
+\t-c, --conf <config file>
+\t\tLoad specific configuration file. Default is $ceph_conf_file.
+
+\t-n, --non-interactive
+\t\tRun in non-interactive mode. All upgrade operations will be 
+\t\texecuted with no input from the user.
+
+\t-h, --help
+\t\tPrint this usage message.
+"
 out_debug () {
     local msg=$1
     [[ "$DEBUG" = true ]] && printf "$msg\n"
@@ -81,6 +92,12 @@ out_err () {
 out_info () {
     local msg="$1"
     out_white "INFO: $msg"
+}
+
+usage_exit () {
+    ret_code="$1"
+    printf "$usage_msg"
+    [[ -z "$ret_code" ]] && exit "$success" || exit "$ret_code"
 }
 
 # echo list of radosgw configuration section names found in ceph.conf. These
@@ -539,13 +556,20 @@ interactive=true
 while [ "$#" -ge 1 ]
 do
     case $1 in
-	--non-interactive)
+	-n | --non-interactive)
 	    interactive=false
 	    ;;
         -c | --conf)
             ceph_conf_file="$2"
+            [[ ! -z "$ceph_conf_file" && -e "$ceph_conf_file" ]] || usage_exit "$failure"
             shift
             ;;
+        -h | --help)
+            usage_exit
+            ;;
+	*)  # unrecognized option
+	    usage_exit
+	    ;;
     esac
     shift
 done
