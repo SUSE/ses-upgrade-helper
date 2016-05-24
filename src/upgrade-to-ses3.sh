@@ -54,9 +54,15 @@ txtwhite=$(tput setaf 7)
 
 usage_msg="usage: $scriptname [options]
 options:
-\t-c, --conf <config file>: Load specific configuration file. Default is $ceph_conf_file.
-\t-n, --non-interactive: Run in non-interactive mode. All upgrade operations will be executed with no input from the user.
-\t-h, --help: Print this usage message.
+\t-c, --conf <config file>
+\t\tLoad specific configuration file. Default is $ceph_conf_file.
+
+\t-n, --non-interactive
+\t\tRun in non-interactive mode. All upgrade operations will be 
+\t\texecuted with no input from the user.
+
+\t-h, --help
+\t\tPrint this usage message.
 "
 out_debug () {
     local msg=$1
