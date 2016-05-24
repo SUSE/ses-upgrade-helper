@@ -119,7 +119,7 @@ confirm_abort () {
 }
 
 output_incomplete_functions () {
-    out_green "Functions which have not yet been called or have failed (in order of execution):\n\n"
+    out_green "Functions which have not yet been called or have failed (in this invocation of $scriptname):\n\n"
     for i in "${!upgrade_funcs[@]}"
     do
 	if [ "${upgrade_funcs_done[$i]}" = false ]
@@ -127,7 +127,7 @@ output_incomplete_functions () {
 	    out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
 	fi
     done
-    out_green "\nWhen re-running the script, run ONLY the above functions.\n\n"
+    out_green "\nWhen re-running $scriptname, run ONLY the above functions, and ONLY if they have not successfully completed in a previous run.\n\n"
     out_green "For additional upgrade information, please visit:\n"
     out_white "$upgrade_doc\n"
 }
