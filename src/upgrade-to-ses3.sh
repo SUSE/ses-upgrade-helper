@@ -283,6 +283,10 @@ user_ceph_not_in_use () {
     ! ps -u ceph &>/dev/null
 }
 
+ceph_conf_file_exists () {
+    [[ ! -z "$ceph_conf_file" && -e "$ceph_conf_file" ]]
+}
+
 preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
 "Check that script is running as root
@@ -304,6 +308,19 @@ in use. (It could be in use, for example, if you logged in as \"ceph\" and ran
 this script using sudo.) If this check fails, find processes owned by user
 \"ceph\" and terminate those processes. Then re-run the script."
 )
+
+preflight_check_funcs+=("ceph_conf_file_exists")
+preflight_check_descs+=(
+"Ensure Ceph configuration file exists on the system
+===================================================
+An existing Ceph configuration file needs to be present on the system in order
+for ${scriptname} to extract various aspects of the configuration. The default
+configuration file is: ${ceph_conf_file}. This can be overriden with the `-c`
+option. See: \`${scriptname} -h\`"
+)
+
+
+
 # ------------------------------------------------------------------------------
 # Operations
 # ------------------------------------------------------------------------------
@@ -561,7 +578,6 @@ do
 	    ;;
         -c | --conf)
             ceph_conf_file="$2"
-            [[ ! -z "$ceph_conf_file" && -e "$ceph_conf_file" ]] || usage_exit "$failure"
             shift
             ;;
         -h | --help)
