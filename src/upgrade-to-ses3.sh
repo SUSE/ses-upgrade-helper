@@ -119,7 +119,7 @@ confirm_abort () {
 }
 
 output_incomplete_functions () {
-    out_green "Functions which have not yet been called or have failed (in order of execution):\n\n"
+    out_green "Functions which have not yet been called or have failed (in this invocation of $scriptname):\n\n"
     for i in "${!upgrade_funcs[@]}"
     do
 	if [ "${upgrade_funcs_done[$i]}" = false ]
@@ -127,7 +127,7 @@ output_incomplete_functions () {
 	    out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
 	fi
     done
-    out_green "\nWhen re-running the script, run ONLY the above functions.\n\n"
+    out_green "\nWhen re-running $scriptname, run ONLY the above functions, and ONLY if they have not successfully completed in a previous run.\n\n"
     out_green "For additional upgrade information, please visit:\n"
     out_white "$upgrade_doc\n"
 }
@@ -297,7 +297,7 @@ stop_ceph_daemons () {
     systemctl stop ceph.target || return "$failure"
 }
 
-rename_ceph_user_and_group () {
+rename_ceph_user () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
     local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
 
@@ -437,10 +437,10 @@ upgrade_func_descs+=(
 =================
 Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
-upgrade_funcs+=("rename_ceph_user_and_group")
+upgrade_funcs+=("rename_ceph_user")
 upgrade_func_descs+=(
-"Rename Ceph user and group
-==========================
+"Rename Ceph user
+================
 SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
 Ceph daemons run as user \"ceph\" in group \"ceph\". The upgrade
 scripting will create these with the proper parameters, provided
