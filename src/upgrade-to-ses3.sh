@@ -550,12 +550,16 @@ interactive=true
 while [ "$#" -ge 1 ]
 do
     case $1 in
-	--non-interactive)
+	-n | --non-interactive)
 	    interactive=false
 	    ;;
         -c | --conf)
             ceph_conf_file="$2"
+            [[ ! -z "$ceph_conf_file" && -e "$ceph_conf_file" ]] || usage_exit "$failure"
             shift
+            ;;
+        -h | --help)
+            usage_exit
             ;;
     esac
     shift
