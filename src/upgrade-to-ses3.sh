@@ -421,38 +421,6 @@ standardize_radosgw_logfile_location () {
     sed -i "/${log_file_exp}/d" "$ceph_conf_file" || return "$failure"
 }
 
-# Jewel based radosgw zones contain a new "meta_heap" structure which need a
-# corresponding pool: "${zone_name}.rgw.meta"
-populate_radosgw_zone_meta_heap () {
-    local not_complete=false
-
-    # Preflight
-    radosgw-admin --version &>/dev/null || return "$skipped"
-    get_permission || return "$?"
-
-    local zone_list=$(radosgw-admin zone list) || return "$failure"
-    zone_list="${zone_list//$'\n'/}" # Flatten zone_list.
-
-    local G_IFS="$IFS"
-    local IFS=','
-    zone_arr=( $(echo "$zone_list" | grep -o "zones.*" | awk '{for(i=3;i<=NF-1;++i)printf $i}') )
-    IFS="$G_IFS"
-
-    for zone in "${zone_arr[@]}"
-    do
-	zone="${zone%\"}" # Remove leading quotes.
-	zone="${zone#\"}" # Remove trailing quotes.
-	local zone_file="/tmp/${zone}.json"
-	radosgw-admin zone get --rgw-zone="${zone}" > "$zone_file" || not_complete=true
-	sed -i "s/\"metadata_heap\": \"\"/\"metadata_heap\": \"${zone}.rgw.meta\"/" "$zone_file" || not_complete=true
-	radosgw-admin zone set --rgw-zone="${zone}" < "$zone_file" || not_complete=true
-	rm "$zone_file"
-    done
-
-    # If we failed at least once above, indicate this to the user.
-    [[ "$not_complete" = true ]] && return "$failure" || return "$success"
-}
-
 finish () {
     # TODO: Noop for now.
     :
@@ -522,14 +490,6 @@ upgrade_func_descs+=(
 SES2 configured a custom location for the RADOSGW log file in ceph.conf. To better
 align with upstream, remove this custom \"log_file\" entry and allow RADOSGW to log
 to the default \"/var/log/ceph/\" location."
-)
-upgrade_funcs+=("populate_radosgw_zone_meta_heap")
-upgrade_func_descs+=(
-"Populate RADOSGW zone metadata heap with to-be-created pool
-===========================================================
-SES2 did not contain a metadata heap structure as part of a RADOSGW zone. When
-upgrading to SES3, the zone configuration must be modified to contain a metadata
-heap pool, which will then be created (it not present) on RADOSGW start."
 )
 upgrade_funcs+=("finish")
 upgrade_func_descs+=(
