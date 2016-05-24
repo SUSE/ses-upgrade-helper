@@ -567,6 +567,9 @@ do
         -h | --help)
             usage_exit
             ;;
+	*)  # unrecognized option
+	    usage_exit
+	    ;;
     esac
     shift
 done
