@@ -384,7 +384,7 @@ zypper_dup () {
     then
 	zypper dist-upgrade || return "$failure"
     else
-	zypper --non-interactive --terse dist-upgrade || return "$failure"
+	zypper --non-interactive dist-upgrade || return "$failure"
     fi
 }
 
