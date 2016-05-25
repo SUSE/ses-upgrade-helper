@@ -336,13 +336,63 @@ stop_ceph_daemons () {
 rename_ceph_user () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
     local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
+    local new_ceph_user="ceph"        # SES3 daemons run as this user.
+    local new_ceph_group="ceph"       # SES3 user "ceph" belongs to this group.
+    local not_complete=false
 
     # Local preflight checks.
-    # If $old_cephadm_user is not present on the system, skip this upgrade function.
+    # 1. If user $new_ceph_user exists and belongs to $new_ceph_group, skip this
+    #    upgrade function.
+    if getent passwd "$new_ceph_user" &>/dev/null
+    then
+        [[ $(id -g -n "$new_ceph_user") = "$new_ceph_group" ]] && return "$skipped"
+    fi
+    # 2. If $old_cephadm_user is not present on the system, skip this upgrade function.
     getent passwd "$old_cephadm_user" &>/dev/null || return "$skipped"
+    # 3. We hit a case where: We have a $new_ceph_user that is _not_ in $new_ceph_group
+    #    _and_ we also have a $new_cephadm_user present. This is a bad state 
+    #    (we have 2 administrative type users and the usermod -l will fail)
+    #    that requires manual intervention.
+    getent passwd "$new_cephadm_user" &>/dev/null &&
+        out_err "Both $old_cephadm_user and $new_ceph_admin administrative users exist! \nPlease backup the home directories of both users, and then remove the $new_cephadm_user from the system (retaining both backups).\nOn retry, we will move $old_cephadm_user to $new_cephadm_user.\n" &&
+        return "$failure"
+    # Finally, get the user's permission.
     get_permission || return "$?"
 
-    usermod -l "$new_cephadm_user" "$old_cephadm_user" && return "$success" || return "$failure"
+    # If the rename fails, report error and don't proceed further, unless $?==6,
+    # signalling that the $old_cephadm_user no longer exists (ie. because we have
+    # already renamed it.
+    # Remainder of operations, on failure, set not_complete flag. User will need to
+    # handle the rename and chown themselves as the system is in a non-standard state.
+    usermod -l "$new_cephadm_user" "$old_cephadm_user"
+    if [ "$?" -ne 0 ]
+    then
+        if [ "$?" -ne 6 ]
+        then
+            return "$failure"
+        fi
+    fi
+
+    local new_cephadm_group=$(id -g -n "$new_cephadm_user")
+    # assert sanity
+    [[ -z "$new_cephadm_group" ]] && out_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
+    [[ "$new_cephadm_group" = "ceph" ]] && out_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
+    # make sure cephadm has a usable home directory
+    if [ -d "/home/${old_cephadm_user}" ]
+    then
+        mv "/home/${old_cephadm_user}" "/home/${new_cephadm_user}" || not_complete=true
+    else
+        mkdir "/home/${new_cephadm_user}" || not_complete=true
+        chmod 0755 "/home/${new_cephadm_user}" || not_complete=true
+    fi
+    chown -R "$new_cephadm_user":"$new_cephadm_group" "/home/${new_cephadm_user}" || not_complete=true
+    usermod -d "/home/$new_cephadm_user" $new_cephadm_user || not_complete=true
+
+    [[ "$not_complete" = true ]] &&
+        out_err "Failed to ensure that new ceph administrative user ${new_cephadm_user} has a proper home directory.\n" &&
+        return "$failure"
+
+    return "$success"
 }
 
 disable_radosgw_services () {
