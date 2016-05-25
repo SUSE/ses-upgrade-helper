@@ -179,8 +179,8 @@ get_permission () {
                 ;;
             [Aa] | [Aa][Bb][Oo][Rr][Tt])
 		# If $yes, return $aborted, otherwise continue asking.
-		confirm_abort || continue
-		return "$aborted"
+		confirm_abort && return "$aborted"
+		continue
                 ;;
             *)
                 out_err "Invalid input.\n"
@@ -442,7 +442,9 @@ disable_radosgw_services () {
 
     # If we failed at least once above, indicate this to the user. However,
     # given the above "Note:", we really can't fail.
-    [[ "$not_complete" = true ]] && return "$failure" || return "$success"
+    [[ "$not_complete" = true ]] && return "$failure"
+
+    return "$success"
 }
 
 disable_restart_on_update () {
