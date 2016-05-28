@@ -317,7 +317,7 @@ preflight_check_descs+=(
 ===================================================
 An existing Ceph configuration file needs to be present on the system in order
 for ${scriptname} to extract various aspects of the configuration. The default
-configuration file is: ${ceph_conf_file}. This can be overriden with the `-c`
+configuration file is: ${ceph_conf_file}. This can be overriden with the \`-c\`
 option. See: \`${scriptname} -h\`"
 )
 
