@@ -46,7 +46,7 @@ ceph_auto_restart_on_upgrade_val=""
 # seemed like a decent fallback.
 upgrade_funcs=() # Array that will contain upgrade function names.
 upgrade_func_descs=() # Array that will contain corresponding upgrade function descriptions.
-upgrade_funcs_done=() # Array to which we will append names of upgrade functions that have completed
+upgrade_funcs_exit_codes=() # Array which will store exit codes of upgrade functions.
 preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
 preflight_check_descs=() # Array of preflight function descriptions.
 
@@ -250,21 +250,32 @@ run_upgrade_func () {
 	func_ret="$?"
 	case $func_ret in
 	    "$success")
-		upgrade_funcs_done[$index]=true
+		upgrade_funcs_ret_codes[$index]="$success"
 		;;
 	    "$skipped")
-		# No-op. User does not wish to run $func.
+		# Local function preflights have skipped the function.
+		upgrade_funcs_ret_codes[$index]="$skipped"
 		out_white "Skipped!\n"
 		;;
 	    "$failure")
                 # Interactive mode failure case fails the current upgrade operation
                 # and continues. Non-interactive mode aborts on failure.
+		upgrade_funcs_ret_codes[$index]="$failure"
 		out_red "Failed!\n"
                 [[ "$interactive" = false ]] && abort
 		;;
 	    "$aborted")
 		# User aborted the process
 		abort
+		;;
+	    "$user_skipped")
+		# User has decided to skip the function. This may have happened
+		# without actually performing anything more than local function
+		# preflights, or it may have happened after the upgrade function
+		# has failed 1+ times. Only set the exit code to $user_skipped
+		# if it is not already set to $failure.
+		[[ "${upgrade_funcs_ret_codes[$index]}" = "$failure" ]] || upgrade_funcs_ret_codes[$index]="$user_skipped"
+		out_white "Skipped!\n"
 		;;
 	    *)
 		# No-op. Do nothing.
@@ -670,10 +681,10 @@ Please go ahead and:
   3. Then move on to the next node"
 )
 
-# Functions have not yet been called. Set their done flags to false.
+# Set exit code for each upgrade function to $uninit (-1).
 for i in "${!upgrade_funcs[@]}"
 do
-    upgrade_funcs_done[$i]=false
+    upgrade_funcs_exit_codes[$i]="$uninit"
 done
 
 # ------------------------------------------------------------------------------
