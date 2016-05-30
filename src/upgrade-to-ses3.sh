@@ -317,7 +317,7 @@ preflight_check_descs+=(
 ===================================================
 An existing Ceph configuration file needs to be present on the system in order
 for ${scriptname} to extract various aspects of the configuration. The default
-configuration file is: ${ceph_conf_file}. This can be overriden with the `-c`
+configuration file is: ${ceph_conf_file}. This can be overriden with the \`-c\`
 option. See: \`${scriptname} -h\`"
 )
 
@@ -721,7 +721,7 @@ do
         preflight_failures=true
     fi
 done
-[[ "$preflight_failures" = true ]] && out_white "One or more pre-flight checks failed\n" && exit 255
+[[ "$preflight_failures" = true ]] && out_white "One or more pre-flight checks failed\n" && exit "$assert_err"
 
 out_green "\n"
 out_green "\nRunning upgrade functions...\n"
