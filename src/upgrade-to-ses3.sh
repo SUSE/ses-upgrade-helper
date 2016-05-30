@@ -140,19 +140,49 @@ confirm_abort () {
 }
 
 output_incomplete_functions () {
-    out_green "Functions which have failed (in this invocation of $scriptname):\n\n"
+    # Let's only output if something failed and/or was skipped.
+    local failed_info_line_output=false
+    local user_skipped_info_line_output=false
+
     for i in "${!upgrade_funcs[@]}"
     do
-	[[ "${upgrade_funcs_ret_codes[$i]}" = "$failure" ]] && out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p
+        if [ "${upgrade_funcs_ret_codes[$i]}" = "$failure" ]
+        then
+            if [ $failed_info_line_output = false ]
+            then
+                out_white "Functions which have failed (in this invocation of $scriptname):\n"
+                out_white "-----------------------------------------------------------------------\n"
+                failed_info_line_output=true
+            fi
+            out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p  
+        fi
     done
-    out_green "\nFunctions which have been skipped by the user (in this invocation of $scriptname):\n\n"
+    [[ "$failed_info_line_output" = true ]] &&
+        out_white "-----------------------------------------------------------------------\n\n"
+
     for i in "${!upgrade_funcs[@]}"
     do
-	[[ "${upgrade_funcs_ret_codes[$i]}" = "$user_skipped" ]] && out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
+	if [ "${upgrade_funcs_ret_codes[$i]}" = "$user_skipped" ]
+        then
+            if [ $user_skipped_info_line_output = false ]
+            then
+                out_white "Functions which have been skipped by the user (in this invocation of $scriptname):\n"
+                out_white "-----------------------------------------------------------------------------------------\n"
+                user_skipped_info_line_output=true
+            fi
+            out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
+        fi
     done
-    out_green "\nWhen re-running $scriptname, run the above functions.\n\n"
-    out_green "For additional upgrade information, please visit:\n"
-    out_white "$upgrade_doc\n"
+    [[ "$user_skipped_info_line_output" = true ]] &&
+        out_white "-----------------------------------------------------------------------------------------\n"
+
+    if [ $failed_info_line_output = true ] || [ $user_skipped_info_line_output = true ]
+    then
+        out_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
+    fi
+
+    out_white "For additional upgrade information, please visit:\n"
+    out_white "$upgrade_doc\n\n"
 }
 
 abort () {
