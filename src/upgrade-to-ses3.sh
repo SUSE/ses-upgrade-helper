@@ -24,12 +24,14 @@ scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 
 # Codes
-success=0
+uninit=-1
+success=0 # $success and $yes return the same value for get_permission handling.
 yes=0
 skipped=1
-no=1
 failure=2
 aborted=3
+user_skipped=4 # $user_skipped and $no return the same value for get_permission handling.
+no=4
 assert_err=255
 
 ceph_sysconfig_file="/etc/sysconfig/ceph"
