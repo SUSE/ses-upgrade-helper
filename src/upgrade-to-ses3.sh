@@ -770,7 +770,6 @@ do
 done
 [[ "$preflight_failures" = true ]] && out_white "One or more pre-flight checks failed\n" && exit "$assert_err"
 
-out_green "\n"
 out_green "\nRunning upgrade functions...\n"
 
 for i in "${!upgrade_funcs[@]}"
