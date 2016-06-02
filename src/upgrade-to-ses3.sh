@@ -24,12 +24,14 @@ scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 
 # Codes
-success=0
+uninit=-1
+success=0 # $success and $yes return the same value for get_permission handling.
 yes=0
 skipped=1
-no=1
 failure=2
 aborted=3
+user_skipped=4 # $user_skipped and $no return the same value for get_permission handling.
+no=4
 assert_err=255
 
 ceph_sysconfig_file="/etc/sysconfig/ceph"
@@ -44,7 +46,7 @@ ceph_auto_restart_on_upgrade_val=""
 # seemed like a decent fallback.
 upgrade_funcs=() # Array that will contain upgrade function names.
 upgrade_func_descs=() # Array that will contain corresponding upgrade function descriptions.
-upgrade_funcs_done=() # Array to which we will append names of upgrade functions that have completed
+upgrade_funcs_exit_codes=() # Array which will store exit codes of upgrade functions.
 preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
 preflight_check_descs=() # Array of preflight function descriptions.
 
@@ -138,17 +140,49 @@ confirm_abort () {
 }
 
 output_incomplete_functions () {
-    out_green "Functions which have not yet been called or have failed (in this invocation of $scriptname):\n\n"
+    # Let's only output if something failed and/or was skipped.
+    local failed_info_line_output=false
+    local user_skipped_info_line_output=false
+
     for i in "${!upgrade_funcs[@]}"
     do
-	if [ "${upgrade_funcs_done[$i]}" = false ]
-	then
-	    out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
-	fi
+        if [ "${upgrade_funcs_ret_codes[$i]}" = "$failure" ]
+        then
+            if [ $failed_info_line_output = false ]
+            then
+                out_white "Functions which have failed (in this invocation of $scriptname):\n"
+                out_white "-----------------------------------------------------------------------\n"
+                failed_info_line_output=true
+            fi
+            out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p  
+        fi
     done
-    out_green "\nWhen re-running $scriptname, run ONLY the above functions, and ONLY if they have not successfully completed in a previous run.\n\n"
-    out_green "For additional upgrade information, please visit:\n"
-    out_white "$upgrade_doc\n"
+    [[ "$failed_info_line_output" = true ]] &&
+        out_white "-----------------------------------------------------------------------\n\n"
+
+    for i in "${!upgrade_funcs[@]}"
+    do
+	if [ "${upgrade_funcs_ret_codes[$i]}" = "$user_skipped" ]
+        then
+            if [ $user_skipped_info_line_output = false ]
+            then
+                out_white "Functions which have been skipped by the user (in this invocation of $scriptname):\n"
+                out_white "-----------------------------------------------------------------------------------------\n"
+                user_skipped_info_line_output=true
+            fi
+            out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
+        fi
+    done
+    [[ "$user_skipped_info_line_output" = true ]] &&
+        out_white "-----------------------------------------------------------------------------------------\n"
+
+    if [ $failed_info_line_output = true ] || [ $user_skipped_info_line_output = true ]
+    then
+        out_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
+    fi
+
+    out_white "For additional upgrade information, please visit:\n"
+    out_white "$upgrade_doc\n\n"
 }
 
 abort () {
@@ -248,21 +282,32 @@ run_upgrade_func () {
 	func_ret="$?"
 	case $func_ret in
 	    "$success")
-		upgrade_funcs_done[$index]=true
+		upgrade_funcs_ret_codes[$index]="$success"
 		;;
 	    "$skipped")
-		# No-op. User does not wish to run $func.
+		# Local function preflights have skipped the function.
+		upgrade_funcs_ret_codes[$index]="$skipped"
 		out_white "Skipped!\n"
 		;;
 	    "$failure")
                 # Interactive mode failure case fails the current upgrade operation
                 # and continues. Non-interactive mode aborts on failure.
+		upgrade_funcs_ret_codes[$index]="$failure"
 		out_red "Failed!\n"
                 [[ "$interactive" = false ]] && abort
 		;;
 	    "$aborted")
 		# User aborted the process
 		abort
+		;;
+	    "$user_skipped")
+		# User has decided to skip the function. This may have happened
+		# without actually performing anything more than local function
+		# preflights, or it may have happened after the upgrade function
+		# has failed 1+ times. Only set the exit code to $user_skipped
+		# if it is not already set to $failure.
+		[[ "${upgrade_funcs_ret_codes[$index]}" = "$failure" ]] || upgrade_funcs_ret_codes[$index]="$user_skipped"
+		out_white "Skipped!\n"
 		;;
 	    *)
 		# No-op. Do nothing.
@@ -668,10 +713,10 @@ Please go ahead and:
   3. Then move on to the next node"
 )
 
-# Functions have not yet been called. Set their done flags to false.
+# Set exit code for each upgrade function to $uninit (-1).
 for i in "${!upgrade_funcs[@]}"
 do
-    upgrade_funcs_done[$i]=false
+    upgrade_funcs_exit_codes[$i]="$uninit"
 done
 
 # ------------------------------------------------------------------------------
@@ -725,7 +770,6 @@ do
 done
 [[ "$preflight_failures" = true ]] && out_white "One or more pre-flight checks failed\n" && exit "$assert_err"
 
-out_green "\n"
 out_green "\nRunning upgrade functions...\n"
 
 for i in "${!upgrade_funcs[@]}"
