@@ -54,7 +54,6 @@ txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
-txtwhite=$(tput setaf 7)
 
 usage_msg="usage: $scriptname [options]
 options:
@@ -68,6 +67,12 @@ options:
 \t-h, --help
 \t\tPrint this usage message.
 "
+
+out_bold () {
+    local msg=$1
+    [[ "$interactive" = true ]] && printf "${txtbold}${msg}${txtnorm}" || printf -- "$msg"
+}
+
 out_debug () {
     local msg=$1
     [[ "$DEBUG" = true ]] && printf "$msg\n"
@@ -76,11 +81,6 @@ out_debug () {
 out_red () {
     local msg=$1
     [[ "$interactive" = true ]] && printf "${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
-}
-
-out_white () {
-    local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtwhite}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_green () {
@@ -95,7 +95,7 @@ out_err () {
 
 out_info () {
     local msg="$1"
-    out_white "INFO: $msg"
+    out_bold "INFO: $msg"
 }
 
 usage_exit () {
@@ -150,15 +150,15 @@ output_incomplete_functions () {
         then
             if [ $failed_info_line_output = false ]
             then
-                out_white "Functions which have failed (in this invocation of $scriptname):\n"
-                out_white "-----------------------------------------------------------------------\n"
+                out_bold "Functions which have failed (in this invocation of $scriptname):\n"
+                out_bold "-----------------------------------------------------------------------\n"
                 failed_info_line_output=true
             fi
             out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p  
         fi
     done
     [[ "$failed_info_line_output" = true ]] &&
-        out_white "-----------------------------------------------------------------------\n\n"
+        out_bold "-----------------------------------------------------------------------\n\n"
 
     for i in "${!upgrade_funcs[@]}"
     do
@@ -166,23 +166,23 @@ output_incomplete_functions () {
         then
             if [ $user_skipped_info_line_output = false ]
             then
-                out_white "Functions which have been skipped by the user (in this invocation of $scriptname):\n"
-                out_white "-----------------------------------------------------------------------------------------\n"
+                out_bold "Functions which have been skipped by the user (in this invocation of $scriptname):\n"
+                out_bold "-----------------------------------------------------------------------------------------\n"
                 user_skipped_info_line_output=true
             fi
-            out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
+            out_bold "${upgrade_func_descs[$i]}\n" | sed -n 1p
         fi
     done
     [[ "$user_skipped_info_line_output" = true ]] &&
-        out_white "-----------------------------------------------------------------------------------------\n"
+        out_bold "-----------------------------------------------------------------------------------------\n"
 
     if [ $failed_info_line_output = true ] || [ $user_skipped_info_line_output = true ]
     then
         out_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
     fi
 
-    out_white "For additional upgrade information, please visit:\n"
-    out_white "$upgrade_doc\n\n"
+    out_bold "For additional upgrade information, please visit:\n"
+    out_bold "$upgrade_doc\n\n"
 }
 
 abort () {
@@ -246,8 +246,8 @@ run_preflight_check () {
     shift
 
     out_debug "DEBUG: about to run pre-flight check ${func}()"
-    out_white "${desc}\n"
-    out_white "\n"
+    out_bold "${desc}\n"
+    out_bold "\n"
 
     "$func" "$@"
 }
@@ -265,7 +265,7 @@ run_upgrade_func () {
     shift
 
     out_debug "\nDEBUG: about to run ${func}()"
-    out_white "\n\n${desc}\n\n"
+    out_bold "\n\n${desc}\n\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
@@ -287,7 +287,7 @@ run_upgrade_func () {
 	    "$skipped")
 		# Local function preflights have skipped the function.
 		upgrade_funcs_ret_codes[$index]="$skipped"
-		out_white "Skipped!\n"
+		out_bold "Skipped!\n"
 		;;
 	    "$failure")
                 # Interactive mode failure case fails the current upgrade operation
@@ -307,7 +307,7 @@ run_upgrade_func () {
 		# has failed 1+ times. Only set the exit code to $user_skipped
 		# if it is not already set to $failure.
 		[[ "${upgrade_funcs_ret_codes[$index]}" = "$failure" ]] || upgrade_funcs_ret_codes[$index]="$user_skipped"
-		out_white "Skipped!\n"
+		out_bold "Skipped!\n"
 		;;
 	    *)
 		# No-op. Do nothing.
@@ -466,7 +466,7 @@ disable_radosgw_services () {
 
     # Done with our local preflights. Output list of instances we want to disable
     # and get permission to do so.
-    out_white "The following enabled RADOSGW instances have been selected for disablement on this node:\n"
+    out_bold "The following enabled RADOSGW instances have been selected for disablement on this node:\n"
     for rgw_service_instance in "${enabled_rgw_instances[@]}"
     do
         printf "  $rgw_service_instance\n"
@@ -576,7 +576,7 @@ enable_radosgw_services () {
 
     # Done with our local preflights. Output list of disabled instances that we
     # want to enable and get permission to do so.
-    out_white "The following RADOSGW instances have been disabled on this node and can now be properly re-enabled:\n"
+    out_bold "The following RADOSGW instances have been disabled on this node and can now be properly re-enabled:\n"
     for rgw_service_instance in "${disabled_rgw_instances[@]}"
     do
         printf "  $rgw_service_instance\n"
@@ -768,7 +768,7 @@ do
         preflight_failures=true
     fi
 done
-[[ "$preflight_failures" = true ]] && out_white "One or more pre-flight checks failed\n" && exit "$assert_err"
+[[ "$preflight_failures" = true ]] && out_bold "One or more pre-flight checks failed\n" && exit "$assert_err"
 
 out_green "\nRunning upgrade functions...\n"
 
