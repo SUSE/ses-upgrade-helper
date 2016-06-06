@@ -98,6 +98,12 @@ out_info () {
     out_white "INFO: $msg"
 }
 
+assert () {
+    local msg="$1"
+    out_red "FATAL: $msg"
+    exit "$assert_err"
+}
+
 usage_exit () {
     ret_code="$1"
     printf "$usage_msg"
@@ -378,6 +384,28 @@ stop_ceph_daemons () {
     systemctl stop ceph.target || return "$failure"
 }
 
+_rename_ceph_user_sudoers () {
+    local sudoers_file="/etc/sudoers"
+    local old_cephadm_user="$1"
+    local new_cephadm_user="$2"
+
+    # Ensure usernames are not null.
+    [[ -n "$old_cephadm_user" && -n "$new_cephadm_user" ]] ||
+        assert "NULL ceph admin user name(s) provided.\n"
+    # Ensure sudoers file exists.
+    [[ ! -e "$sudoers_file" ]] &&
+        out_err "$sudoers_file does not exist.\n" &&
+        return "$failure"
+
+    # Match all $old_cephadm_user entries that start at the beginning of a line
+    # and conclude at a word boundary. Replace with $new_cephadm_user.
+    # sed returns 0 whether or not matches occur.
+    sed -i "s/^${old_cephadm_user}\b/${new_cephadm_user}/g" "$sudoers_file" ||
+        return "$failure"
+
+    return "$success"
+}
+
 rename_ceph_user () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
     local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
@@ -422,6 +450,9 @@ rename_ceph_user () {
     # assert sanity
     [[ -z "$new_cephadm_group" ]] && out_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
     [[ "$new_cephadm_group" = "ceph" ]] && out_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
+
+    _rename_ceph_user_sudoers "$old_cephadm_user" "$new_cephadm_user" || return "$failure"
+
     # make sure cephadm has a usable home directory
     if [ -d "/home/${old_cephadm_user}" ]
     then
