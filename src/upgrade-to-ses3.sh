@@ -71,6 +71,10 @@ options:
 out_bold () {
     local msg=$1
     [[ "$interactive" = true ]] && printf "${txtbold}${msg}${txtnorm}" || printf -- "$msg"
+
+out_norm () {
+    local msg=$1
+    printf "${txtnorm}${msg}"
 }
 
 out_debug () {
