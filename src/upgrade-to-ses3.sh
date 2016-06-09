@@ -92,9 +92,9 @@ out_bold_red () {
     [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
 }
 
-out_green () {
+out_bold_green () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtgreen}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${txtgreen}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_err () {
@@ -193,7 +193,7 @@ output_incomplete_functions () {
 
     if [ $failed_info_line_output = true ] || [ $user_skipped_info_line_output = true ]
     then
-        out_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
+        out_bold_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
     fi
 
     out_bold "For additional upgrade information, please visit:\n"
@@ -790,35 +790,35 @@ do
     shift
 done
 
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "===== SES2.X to SES3 Upgrade =====\n"
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "\n"
-out_green "Running pre-flight checks...\n"
-out_green "\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== SES2.X to SES3 Upgrade =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "\n"
+out_bold_green "Running pre-flight checks...\n"
+out_bold_green "\n"
 
 preflight_failures=false
 for i in "${!preflight_check_funcs[@]}"
 do
     if run_preflight_check "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}"
     then
-        out_green "PASSED\n\n"
+        out_bold_green "PASSED\n\n"
     else
-        out_red "FAILED\n\n"
+        out_bold_red "FAILED\n\n"
         preflight_failures=true
     fi
 done
 [[ "$preflight_failures" = true ]] && out_bold "One or more pre-flight checks failed\n" && exit "$assert_err"
 
-out_green "\nRunning upgrade functions...\n"
+out_bold_green "\nRunning upgrade functions...\n"
 
 for i in "${!upgrade_funcs[@]}"
 do
     run_upgrade_func "${upgrade_funcs[$i]}" "${upgrade_func_descs[$i]}" "$i"
 done
 
-out_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "===== SES2.X to SES3 Upgrade Completed =====\n"
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== SES2.X to SES3 Upgrade Completed =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 
 output_incomplete_functions
