@@ -249,8 +249,7 @@ assert_number_of_args () {
     # assert that we have $expected number of arguments - no more, no less!
     if [[ "$actual" != "$expected" ]]
     then
-        out_err "${funcname}: Invalid number of arguments (${actual}). Please provide ${expected}.\n"
-	exit $assert_err
+	assert "${funcname}: Invalid number of arguments (${actual}). Please provide ${expected}.\n"
     fi
 }
 
@@ -810,7 +809,7 @@ do
         preflight_failures=true
     fi
 done
-[[ "$preflight_failures" = true ]] && out_bold "One or more pre-flight checks failed\n" && exit "$assert_err"
+[[ "$preflight_failures" = true ]] && assert "One or more pre-flight checks failed\n"
 
 out_bold_green "\nRunning upgrade functions...\n"
 
