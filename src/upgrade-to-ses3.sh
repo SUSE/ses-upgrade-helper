@@ -84,7 +84,12 @@ out_debug () {
 
 out_red () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtred}${msg}${txtnorm}" || printf -- "$msg"
+}
+
+out_bold_red () {
+    local msg=$1
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_green () {
@@ -94,7 +99,7 @@ out_green () {
 
 out_err () {
     local msg=$1
-    out_red "ERROR: $msg"
+    out_bold_red "ERROR: $msg"
 }
 
 out_info () {
@@ -104,7 +109,7 @@ out_info () {
 
 assert () {
     local msg="$1"
-    out_red "FATAL: $msg"
+    out_bold_red "FATAL: $msg"
     exit "$assert_err"
 }
 
@@ -133,7 +138,7 @@ confirm_abort () {
 
     while true
     do
-	out_red "$prompt"
+	out_bold_red "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
@@ -196,7 +201,7 @@ output_incomplete_functions () {
 }
 
 abort () {
-    out_red "\nAborting...\n\n"
+    out_bold_red "\nAborting...\n\n"
     output_incomplete_functions
     exit "$aborted"
 }
@@ -303,7 +308,7 @@ run_upgrade_func () {
                 # Interactive mode failure case fails the current upgrade operation
                 # and continues. Non-interactive mode aborts on failure.
 		upgrade_funcs_ret_codes[$index]="$failure"
-		out_red "Failed!\n"
+		out_bold_red "Failed!\n"
                 [[ "$interactive" = false ]] && abort
 		;;
 	    "$aborted")
@@ -452,8 +457,8 @@ rename_ceph_user () {
 
     local new_cephadm_group=$(id -g -n "$new_cephadm_user")
     # assert sanity
-    [[ -z "$new_cephadm_group" ]] && out_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
-    [[ "$new_cephadm_group" = "ceph" ]] && out_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
+    [[ -z "$new_cephadm_group" ]] && out_bold_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
+    [[ "$new_cephadm_group" = "ceph" ]] && out_bold_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
 
     _rename_ceph_user_sudoers "$old_cephadm_user" "$new_cephadm_user" || return "$failure"
 
@@ -634,7 +639,7 @@ enable_radosgw_services () {
     # systemctl will happily take any instance name.
     if [ "$not_complete" = true ]
     then
-        out_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
+        out_bold_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
         printf "$ceph_radosgw_disabled_services_datafile:\n"
         cat "$ceph_radosgw_disabled_services_datafile"
         printf "\n"
