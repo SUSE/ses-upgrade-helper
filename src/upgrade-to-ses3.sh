@@ -170,7 +170,7 @@ output_incomplete_functions () {
                 out_bold "-----------------------------------------------------------------------\n"
                 failed_info_line_output=true
             fi
-            out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p  
+            out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p
         fi
     done
     [[ "$failed_info_line_output" = true ]] &&
