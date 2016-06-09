@@ -116,7 +116,7 @@ assert () {
 
 usage_exit () {
     ret_code="$1"
-    printf "$usage_msg"
+    out_norm "$usage_msg"
     [[ -z "$ret_code" ]] && exit "$success" || exit "$ret_code"
 }
 
@@ -510,9 +510,9 @@ disable_radosgw_services () {
     out_bold "The following enabled RADOSGW instances have been selected for disablement on this node:\n"
     for rgw_service_instance in "${enabled_rgw_instances[@]}"
     do
-        printf "  $rgw_service_instance\n"
+        out_norm "  $rgw_service_instance\n"
     done
-    printf "\n"
+    out_norm "\n"
     get_permission || return "$?"
 
     # Clear out $ceph_radosgw_disabled_services_datafile.
@@ -620,9 +620,9 @@ enable_radosgw_services () {
     out_bold "The following RADOSGW instances have been disabled on this node and can now be properly re-enabled:\n"
     for rgw_service_instance in "${disabled_rgw_instances[@]}"
     do
-        printf "  $rgw_service_instance\n"
+        out_norm "  $rgw_service_instance\n"
     done
-    printf "\n"
+    out_norm "\n"
     get_permission || return "$?"
 
     for rgw_service_instance in "${disabled_rgw_instances[@]}"
@@ -641,9 +641,9 @@ enable_radosgw_services () {
     if [ "$not_complete" = true ]
     then
         out_bold_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
-        printf "$ceph_radosgw_disabled_services_datafile:\n"
+        out_norm "$ceph_radosgw_disabled_services_datafile:\n"
         cat "$ceph_radosgw_disabled_services_datafile"
-        printf "\n"
+        out_norm "\n"
         return "$failure"
     else
         rm "$ceph_radosgw_disabled_services_datafile"
