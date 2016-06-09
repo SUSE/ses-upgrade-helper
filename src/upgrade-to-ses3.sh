@@ -218,7 +218,7 @@ get_permission () {
 
     while true
     do
-	printf "$prompt"
+	out_bold "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss] | "")
