@@ -70,7 +70,12 @@ options:
 
 out_bold () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${msg}${txtnorm}" || printf -- "$msg"
+}
+
+out_norm () {
+    local msg=$1
+    printf "${txtnorm}${msg}"
 }
 
 out_debug () {
@@ -80,17 +85,22 @@ out_debug () {
 
 out_red () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtred}${msg}${txtnorm}" || printf -- "$msg"
 }
 
-out_green () {
+out_bold_red () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtgreen}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
+}
+
+out_bold_green () {
+    local msg=$1
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${txtgreen}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_err () {
     local msg=$1
-    out_red "ERROR: $msg"
+    out_bold_red "ERROR: $msg"
 }
 
 out_info () {
@@ -100,13 +110,13 @@ out_info () {
 
 assert () {
     local msg="$1"
-    out_red "FATAL: $msg"
+    out_bold_red "FATAL: $msg"
     exit "$assert_err"
 }
 
 usage_exit () {
     ret_code="$1"
-    printf "$usage_msg"
+    out_norm "$usage_msg"
     [[ -z "$ret_code" ]] && exit "$success" || exit "$ret_code"
 }
 
@@ -129,7 +139,7 @@ confirm_abort () {
 
     while true
     do
-	out_red "$prompt"
+	out_bold_red "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
@@ -160,7 +170,7 @@ output_incomplete_functions () {
                 out_bold "-----------------------------------------------------------------------\n"
                 failed_info_line_output=true
             fi
-            out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p  
+            out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p
         fi
     done
     [[ "$failed_info_line_output" = true ]] &&
@@ -176,7 +186,7 @@ output_incomplete_functions () {
                 out_bold "-----------------------------------------------------------------------------------------\n"
                 user_skipped_info_line_output=true
             fi
-            out_bold "${upgrade_func_descs[$i]}\n" | sed -n 1p
+            out_norm "${upgrade_func_descs[$i]}\n" | sed -n 1p
         fi
     done
     [[ "$user_skipped_info_line_output" = true ]] &&
@@ -184,7 +194,7 @@ output_incomplete_functions () {
 
     if [ $failed_info_line_output = true ] || [ $user_skipped_info_line_output = true ]
     then
-        out_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
+        out_bold_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
     fi
 
     out_bold "For additional upgrade information, please visit:\n"
@@ -192,7 +202,7 @@ output_incomplete_functions () {
 }
 
 abort () {
-    out_red "\nAborting...\n\n"
+    out_bold_red "\nAborting...\n\n"
     output_incomplete_functions
     exit "$aborted"
 }
@@ -208,7 +218,7 @@ get_permission () {
 
     while true
     do
-	printf "$prompt"
+	out_bold "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss] | "")
@@ -252,8 +262,8 @@ run_preflight_check () {
     shift
 
     out_debug "DEBUG: about to run pre-flight check ${func}()"
-    out_bold "${desc}\n"
-    out_bold "\n"
+    out_norm "${desc}\n"
+    out_norm "\n"
 
     "$func" "$@"
 }
@@ -271,7 +281,7 @@ run_upgrade_func () {
     shift
 
     out_debug "\nDEBUG: about to run ${func}()"
-    out_bold "\n\n${desc}\n\n"
+    out_norm "\n\n${desc}\n\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
@@ -299,7 +309,7 @@ run_upgrade_func () {
                 # Interactive mode failure case fails the current upgrade operation
                 # and continues. Non-interactive mode aborts on failure.
 		upgrade_funcs_ret_codes[$index]="$failure"
-		out_red "Failed!\n"
+		out_bold_red "Failed!\n"
                 [[ "$interactive" = false ]] && abort
 		;;
 	    "$aborted")
@@ -448,8 +458,8 @@ rename_ceph_user () {
 
     local new_cephadm_group=$(id -g -n "$new_cephadm_user")
     # assert sanity
-    [[ -z "$new_cephadm_group" ]] && out_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
-    [[ "$new_cephadm_group" = "ceph" ]] && out_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
+    [[ -z "$new_cephadm_group" ]] && out_bold_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
+    [[ "$new_cephadm_group" = "ceph" ]] && out_bold_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
 
     _rename_ceph_user_sudoers "$old_cephadm_user" "$new_cephadm_user" || return "$failure"
 
@@ -500,9 +510,9 @@ disable_radosgw_services () {
     out_bold "The following enabled RADOSGW instances have been selected for disablement on this node:\n"
     for rgw_service_instance in "${enabled_rgw_instances[@]}"
     do
-        printf "  $rgw_service_instance\n"
+        out_norm "  $rgw_service_instance\n"
     done
-    printf "\n"
+    out_norm "\n"
     get_permission || return "$?"
 
     # Clear out $ceph_radosgw_disabled_services_datafile.
@@ -610,9 +620,9 @@ enable_radosgw_services () {
     out_bold "The following RADOSGW instances have been disabled on this node and can now be properly re-enabled:\n"
     for rgw_service_instance in "${disabled_rgw_instances[@]}"
     do
-        printf "  $rgw_service_instance\n"
+        out_norm "  $rgw_service_instance\n"
     done
-    printf "\n"
+    out_norm "\n"
     get_permission || return "$?"
 
     for rgw_service_instance in "${disabled_rgw_instances[@]}"
@@ -630,10 +640,10 @@ enable_radosgw_services () {
     # systemctl will happily take any instance name.
     if [ "$not_complete" = true ]
     then
-        out_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
-        printf "$ceph_radosgw_disabled_services_datafile:\n"
+        out_bold_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
+        out_norm "$ceph_radosgw_disabled_services_datafile:\n"
         cat "$ceph_radosgw_disabled_services_datafile"
-        printf "\n"
+        out_norm "\n"
         return "$failure"
     else
         rm "$ceph_radosgw_disabled_services_datafile"
@@ -781,35 +791,35 @@ do
     shift
 done
 
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "===== SES2.X to SES3 Upgrade =====\n"
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "\n"
-out_green "Running pre-flight checks...\n"
-out_green "\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== SES2.X to SES3 Upgrade =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "\n"
+out_bold_green "Running pre-flight checks...\n"
+out_bold_green "\n"
 
 preflight_failures=false
 for i in "${!preflight_check_funcs[@]}"
 do
     if run_preflight_check "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}"
     then
-        out_green "PASSED\n\n"
+        out_bold_green "PASSED\n\n"
     else
-        out_red "FAILED\n\n"
+        out_bold_red "FAILED\n\n"
         preflight_failures=true
     fi
 done
 [[ "$preflight_failures" = true ]] && out_bold "One or more pre-flight checks failed\n" && exit "$assert_err"
 
-out_green "\nRunning upgrade functions...\n"
+out_bold_green "\nRunning upgrade functions...\n"
 
 for i in "${!upgrade_funcs[@]}"
 do
     run_upgrade_func "${upgrade_funcs[$i]}" "${upgrade_func_descs[$i]}" "$i"
 done
 
-out_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "===== SES2.X to SES3 Upgrade Completed =====\n"
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== SES2.X to SES3 Upgrade Completed =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 
 output_incomplete_functions
