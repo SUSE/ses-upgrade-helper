@@ -186,7 +186,7 @@ output_incomplete_functions () {
                 out_bold "-----------------------------------------------------------------------------------------\n"
                 user_skipped_info_line_output=true
             fi
-            out_bold "${upgrade_func_descs[$i]}\n" | sed -n 1p
+            out_norm "${upgrade_func_descs[$i]}\n" | sed -n 1p
         fi
     done
     [[ "$user_skipped_info_line_output" = true ]] &&
@@ -262,8 +262,8 @@ run_preflight_check () {
     shift
 
     out_debug "DEBUG: about to run pre-flight check ${func}()"
-    out_bold "${desc}\n"
-    out_bold "\n"
+    out_norm "${desc}\n"
+    out_norm "\n"
 
     "$func" "$@"
 }
@@ -281,7 +281,7 @@ run_upgrade_func () {
     shift
 
     out_debug "\nDEBUG: about to run ${func}()"
-    out_bold "\n\n${desc}\n\n"
+    out_norm "\n\n${desc}\n\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
