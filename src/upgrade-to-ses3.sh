@@ -32,6 +32,7 @@ failure=2
 aborted=3
 user_skipped=4 # $user_skipped and $no return the same value for get_permission handling.
 no=4
+func_abort=254
 assert_err=255
 
 ceph_sysconfig_file="/etc/sysconfig/ceph"
@@ -458,8 +459,8 @@ rename_ceph_user () {
 
     local new_cephadm_group=$(id -g -n "$new_cephadm_user")
     # assert sanity
-    [[ -z "$new_cephadm_group" ]] && out_bold_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
-    [[ "$new_cephadm_group" = "ceph" ]] && out_bold_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
+    [[ -z "$new_cephadm_group" ]] && out_bold_red "FATAL: could not determine gid of new cephadm user" && return "$func_abort"
+    [[ "$new_cephadm_group" = "ceph" ]] && out_bold_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return "$func_abort"
 
     _rename_ceph_user_sudoers "$old_cephadm_user" "$new_cephadm_user" || return "$failure"
 
@@ -491,10 +492,10 @@ disable_radosgw_services () {
     ceph-conf --version &>/dev/null || return "$skipped"
     # Check if ceph-radosgw package installed.
     rpm -qi "$ceph_radosgw_pkg" &>/dev/null || return "$skipped"
-    # If we get_radosgw_conf_section_names() legitimately fails, then we return
-    # $assert_err. Since this is a preflight, we don't want to loop in run_upgrade_func(),
-    # so return $assert_err instead of $failure.
-    radosgw_conf_section_names=$(get_radosgw_conf_section_names) || return "$assert_err"
+    # If get_radosgw_conf_section_names() legitimately fails, then we return
+    # $func_abort. Since this is a preflight, we don't want to loop in
+    # run_upgrade_func(), so return $func_abort instead of $failure.
+    radosgw_conf_section_names=$(get_radosgw_conf_section_names) || return "$func_abort"
     for rgw_conf_section_name in $radosgw_conf_section_names
     do
         # rgw_conf_section_name -> [client.radosgw.some_host_name]
