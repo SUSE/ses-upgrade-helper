@@ -811,7 +811,7 @@ do
         preflight_failures=true
     fi
 done
-[[ "$preflight_failures" = true ]] && assert "One or more pre-flight checks failed\n"
+[[ "$preflight_failures" = true ]] && abort "One or more pre-flight checks failed\n"
 
 out_bold_green "\nRunning upgrade functions...\n"
 
