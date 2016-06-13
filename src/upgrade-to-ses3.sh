@@ -203,6 +203,8 @@ output_incomplete_functions () {
 }
 
 abort () {
+    local msg="$1"
+    [[ -n "$msg" ]] && out_bold_red "FATAL: $msg"
     out_bold_red "\nAborting...\n\n"
     output_incomplete_functions
     exit "$aborted"
