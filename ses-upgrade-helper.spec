@@ -36,6 +36,8 @@ Script to help the admin upgrade cluster nodes from SES 2.1 to SES 3
 %install
 cd src
 make DESTDIR=%{buildroot} install
+cd ../man
+make DESTDIR=%{buildroot} install
 
 %clean
 rm -rf %{buildroot}
@@ -44,6 +46,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %doc AUTHORS LICENSE README
 %{_bindir}/upgrade-to-ses3.sh
+%{_mandir}/man8/upgrade-to-ses3.sh.8*
 
 %changelog
 
