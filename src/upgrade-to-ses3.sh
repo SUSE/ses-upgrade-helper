@@ -156,6 +156,25 @@ confirm_abort () {
     done
 }
 
+# Returns $yes if all upgrade functions succeeded. Otherwise returns $no.
+upgrade_funcs_succeeded () {
+    for i in "${!upgrade_funcs[@]}"
+    do
+        [[ "${upgrade_funcs_ret_codes[$i]}" = "$failure" ]] && return "$no"
+    done
+
+    return "$yes"
+}
+
+# Return $yes is user skipped any upgrade functions. Otherwise return $no.
+upgrade_funcs_user_skipped () {
+    for i in "${!upgrade_funcs[@]}"
+    do
+	[[ "${upgrade_funcs_ret_codes[$i]}" = "$user_skipped" ]] && return "$yes"
+    done
+
+    return "$no"
+}
 output_incomplete_functions () {
     # Let's only output if something failed and/or was skipped.
     local failed_info_line_output=false
