@@ -264,7 +264,7 @@ abort () {
     local msg="$1"
     [[ -n "$msg" ]] && out_bold_red "FATAL: $msg"
     out_bold_red "\nAborting...\n\n"
-    output_incomplete_functions
+    output_final_report true
     exit "$aborted"
 }
 
@@ -868,4 +868,4 @@ out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
 out_bold_green "===== SES2.X to SES3 Upgrade Completed =====\n"
 out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 
-output_incomplete_functions
+output_final_report
