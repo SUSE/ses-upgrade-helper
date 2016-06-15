@@ -682,11 +682,6 @@ standardize_radosgw_logfile_location () {
     sed -i "/${log_file_exp}/d" "$ceph_conf_file" || return "$failure"
 }
 
-finish () {
-    # TODO: Noop for now.
-    :
-}
-
 upgrade_funcs+=("stop_ceph_daemons")
 upgrade_func_descs+=(
 "Stop Ceph Daemons
@@ -764,15 +759,6 @@ SES2 ceph-deploy added a \"log_file\" entry to ceph.conf setting a custom
 location for the RADOS Gateway log file in ceph.conf. In SES3, the best
 practice is to let the RADOS Gateway log to its default location,
 \"/var/log/ceph\", like the other Ceph daemons. If in doubt, just say Yes."
-)
-upgrade_funcs+=("finish")
-upgrade_func_descs+=(
-"Update has been Finished
-========================
-Please go ahead and:
-  1. Reboot
-  2. Wait for HEALTH_OK
-  3. Then move on to the next node"
 )
 
 # Set exit code for each upgrade function to $uninit (-1).
