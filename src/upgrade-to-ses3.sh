@@ -156,10 +156,45 @@ confirm_abort () {
     done
 }
 
-output_incomplete_functions () {
-    # Let's only output if something failed and/or was skipped.
+# Returns $yes if all upgrade functions succeeded. Otherwise returns $no.
+upgrade_funcs_succeeded () {
+    for i in "${!upgrade_funcs[@]}"
+    do
+        [[ "${upgrade_funcs_ret_codes[$i]}" = "$failure" ]] && return "$no"
+    done
+
+    return "$yes"
+}
+
+# Return $yes is user skipped any upgrade functions. Otherwise return $no.
+upgrade_funcs_user_skipped () {
+    for i in "${!upgrade_funcs[@]}"
+    do
+	[[ "${upgrade_funcs_ret_codes[$i]}" = "$user_skipped" ]] && return "$yes"
+    done
+
+    return "$no"
+}
+
+_output_final_report_failures () {
+    out_bold_red "\nWARNING: "
+    out_bold "One or more upgrade functions have failed!\n"
+    out_bold "         It is advisable to diagnoes the failures and re-run the failed functions.\n"
+}
+
+_output_final_report_success () {
+    out_bold_green "\nSUCCESS: "
+    out_bold "Upgrade has completed without any detected failures.\n"
+    out_bold "         Please go ahead and:\n"
+    out_norm "         1. Re-run any functions which you unintentionally skipped\n"
+    out_norm "         2. Reboot\n"
+    out_norm "         3. Wait for HEALTH_OK or HEALTH_WARN in case status also displays:\n"
+    out_norm "            \"crush map has legacy tunables (require bobtail, min is firefly)\"\n"
+    out_norm "         4. Then move on to the next node\n"
+}
+
+_output_final_report_list_failures () {
     local failed_info_line_output=false
-    local user_skipped_info_line_output=false
 
     for i in "${!upgrade_funcs[@]}"
     do
@@ -167,7 +202,7 @@ output_incomplete_functions () {
         then
             if [ $failed_info_line_output = false ]
             then
-                out_bold "Functions which have failed (in this invocation of $scriptname):\n"
+                out_bold "\nFunctions which have failed (in this invocation of $scriptname):\n"
                 out_bold "-----------------------------------------------------------------------\n"
                 failed_info_line_output=true
             fi
@@ -175,7 +210,11 @@ output_incomplete_functions () {
         fi
     done
     [[ "$failed_info_line_output" = true ]] &&
-        out_bold "-----------------------------------------------------------------------\n\n"
+        out_bold "-----------------------------------------------------------------------\n"
+}
+
+_output_final_report_list_user_skipped () {
+    local user_skipped_info_line_output=false
 
     for i in "${!upgrade_funcs[@]}"
     do
@@ -183,7 +222,7 @@ output_incomplete_functions () {
         then
             if [ $user_skipped_info_line_output = false ]
             then
-                out_bold "Functions which have been skipped by the user (in this invocation of $scriptname):\n"
+                out_bold "\nFunctions which have been skipped by the user (in this invocation of $scriptname):\n"
                 out_bold "-----------------------------------------------------------------------------------------\n"
                 user_skipped_info_line_output=true
             fi
@@ -192,13 +231,32 @@ output_incomplete_functions () {
     done
     [[ "$user_skipped_info_line_output" = true ]] &&
         out_bold "-----------------------------------------------------------------------------------------\n"
+}
 
-    if [ $failed_info_line_output = true ] || [ $user_skipped_info_line_output = true ]
+output_final_report () {
+    local aborting=false
+    [[ -n "$1" ]] && "$1" && aborting=true
+
+    out_bold "----------------------- "
+    out_bold_green "Report"
+    out_bold " -----------------------\n"
+
+    if [ "$aborting" = true ]
     then
-        out_bold_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n\n"
+        upgrade_funcs_succeeded || _output_final_report_failures
+    else
+        upgrade_funcs_succeeded && _output_final_report_success || _output_final_report_failures
     fi
 
-    out_bold "For additional upgrade information, please visit:\n"
+    _output_final_report_list_failures
+    _output_final_report_list_user_skipped
+
+    if ! upgrade_funcs_succeeded || upgrade_funcs_user_skipped
+    then
+        out_bold_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n"
+    fi
+
+    out_bold "\nFor additional upgrade information, please visit:\n"
     out_bold "$upgrade_doc\n\n"
 }
 
@@ -206,7 +264,7 @@ abort () {
     local msg="$1"
     [[ -n "$msg" ]] && out_bold_red "FATAL: $msg"
     out_bold_red "\nAborting...\n\n"
-    output_incomplete_functions
+    output_final_report true
     exit "$aborted"
 }
 
@@ -663,11 +721,6 @@ standardize_radosgw_logfile_location () {
     sed -i "/${log_file_exp}/d" "$ceph_conf_file" || return "$failure"
 }
 
-finish () {
-    # TODO: Noop for now.
-    :
-}
-
 upgrade_funcs+=("stop_ceph_daemons")
 upgrade_func_descs+=(
 "Stop Ceph Daemons
@@ -746,15 +799,6 @@ location for the RADOS Gateway log file in ceph.conf. In SES3, the best
 practice is to let the RADOS Gateway log to its default location,
 \"/var/log/ceph\", like the other Ceph daemons. If in doubt, just say Yes."
 )
-upgrade_funcs+=("finish")
-upgrade_func_descs+=(
-"Update has been Finished
-========================
-Please go ahead and:
-  1. Reboot
-  2. Wait for HEALTH_OK
-  3. Then move on to the next node"
-)
 
 # Set exit code for each upgrade function to $uninit (-1).
 for i in "${!upgrade_funcs[@]}"
@@ -820,8 +864,8 @@ do
     run_upgrade_func "${upgrade_funcs[$i]}" "${upgrade_func_descs[$i]}" "$i"
 done
 
-out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_bold_green "===== SES2.X to SES3 Upgrade Completed =====\n"
-out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== SES2.X to SES3 Upgrade Script has Finished =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 
-output_incomplete_functions
+output_final_report
