@@ -644,7 +644,7 @@ chown_var_lib_ceph () {
     get_permission || return "$?"
 
     out_info "This may take some time depending on the number of files on the OSD mounts.\n"
-    chown -R ceph:ceph /var/lib/ceph || return "$failure"
+    chown -RL ceph:ceph /var/lib/ceph || return "$failure"
 }
 
 enable_radosgw_services () {
