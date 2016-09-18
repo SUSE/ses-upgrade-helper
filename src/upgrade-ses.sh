@@ -1,6 +1,6 @@
 #!/bin/bash
 # 
-# SES 2.1 -> 3.0 upgrade helper script
+# SES upgrade helper script
 #
 # Copyright (c) 2016, SUSE LLC
 # All rights reserved.
@@ -11,10 +11,10 @@
 #
 
 # ==============================================================================
-# upgrade-to-ses3.sh
-# ------------------
+# upgrade-ses.sh
+# --------------
 #
-# Sets out to upgrade a SES2/2.1 Installation to SES3.
+# Sets out to upgrade a SES Installation.
 #
 # ==============================================================================
 
@@ -22,6 +22,7 @@
 DEBUG=false
 SES_VER="devel" # Replaced during build with SES version to which we will upgrade.
 scriptname=$(basename "$0")
+# TODO: update doc version based on SESVER
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 
 # Codes
@@ -419,12 +420,16 @@ The upgrade script must run as root. If this check fails, it means you are not
 running it as root (sudo/su are fine as long as they are not run as the
 \"ceph\" user)."
 )
+# TODO: this global check will not be valid as it is now. We will have to
+#       determine if "ceph" belongs to ceph-deploy, or to ceph (ie. are
+#       we upgrading from SES2 or SES3+. I think adding a /var/lib/ceph
+#       ownership check is needed.
 preflight_check_funcs+=("user_ceph_not_in_use")
 preflight_check_descs+=(
 "Check for processes owned by user \"ceph\"
 ========================================
-In SES2, the user \"ceph\" was created to run ceph-deploy. In SES3, all Ceph
-daemons run as user and group \"ceph\". Since it is preferable to have no
+In SES2, the user \"ceph\" was created to run ceph-deploy. In SES3 and beyond,
+all Ceph daemons run as user and group \"ceph\". Since it is preferable to have no
 ordinary \"ceph\" user in the system when the upgrade is performed, this script
 will check if there is an existing \"ceph\" user and rename it to \"cephadm\"
 if it exists. For this rename operation to work, the \"ceph\" user must not be
@@ -479,9 +484,9 @@ _rename_ceph_user_sudoers () {
 
 rename_ceph_user () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
-    local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
-    local new_ceph_user="ceph"        # SES3 daemons run as this user.
-    local new_ceph_group="ceph"       # SES3 user "ceph" belongs to this group.
+    local new_cephadm_user="cephadm"  # Our new SES3+ cephadm user (ceph-deploy).
+    local new_ceph_user="ceph"        # SES3+ daemons run as this user.
+    local new_ceph_group="ceph"       # SES3+ user "ceph" belongs to this group.
     local not_complete=false
 
     # Local preflight checks.
@@ -728,13 +733,14 @@ upgrade_func_descs+=(
 =================
 Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
+# TODO: Again, will need to determain if coming from SES2 or SES3+
 upgrade_funcs+=("rename_ceph_user")
 upgrade_func_descs+=(
 "Rename Ceph user
 ================
-SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
-Ceph daemons run as user \"ceph\" in group \"ceph\". The upgrade
-scripting will create these with the proper parameters, provided
+SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3
+and beyond, Ceph daemons run as user \"ceph\" in group \"ceph\". The
+upgrade scripting will create these with the proper parameters, provided
 they do not exist in the system. Therefore, we now rename any
 existing user \"ceph\" to \"cephadm\". If in doubt, say Y here."
 
@@ -787,17 +793,17 @@ upgrade_func_descs+=(
 "Re-enable RADOS Gateway services
 ================================
 Now that the ceph packages have been upgraded, we re-enable the RGW
-services using the SES3 naming convention. There is no danger in answering
-Yes here. If there are no RADOS Gateway instances configured on this node,
-the step will be skipped automatically."
+services using the SES3, and beyond, naming convention. There is no danger
+in answering Yes here. If there are no RADOS Gateway instances configured on
+this node, the step will be skipped automatically."
 )
 upgrade_funcs+=("standardize_radosgw_logfile_location")
 upgrade_func_descs+=(
 "Configure RADOS Gateway instances to log in default location
 ============================================================
 SES2 ceph-deploy added a \"log_file\" entry to ceph.conf setting a custom
-location for the RADOS Gateway log file in ceph.conf. In SES3, the best
-practice is to let the RADOS Gateway log to its default location,
+location for the RADOS Gateway log file in ceph.conf. In SES3 and beyond,
+the best practice is to let the RADOS Gateway log to its default location,
 \"/var/log/ceph\", like the other Ceph daemons. If in doubt, just say Yes."
 )
 
@@ -838,9 +844,9 @@ do
     shift
 done
 
-out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_bold_green "===== SES2.X to SES3 Upgrade =====\n"
-out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== Welcome to the SES-${SES_VER} Upgrade =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
 out_bold_green "\n"
 out_bold_green "Running pre-flight checks...\n"
 out_bold_green "\n"
@@ -865,8 +871,8 @@ do
     run_upgrade_func "${upgrade_funcs[$i]}" "${upgrade_func_descs[$i]}" "$i"
 done
 
-out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_bold_green "===== SES2.X to SES3 Upgrade Script has Finished =====\n"
-out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n"
+out_bold_green "========== SES-${SES_VER} Upgrade Script has Finished ==========\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n"
 
 output_final_report
