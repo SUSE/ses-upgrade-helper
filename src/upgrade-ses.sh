@@ -20,6 +20,7 @@
 
 # Various globals
 DEBUG=false
+SES_VER="devel" # Replaced during build with SES version to which we will upgrade.
 scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 
