@@ -400,12 +400,35 @@ run_upgrade_func () {
 # ------------------------------------------------------------------------------
 # Global pre-flight functions.
 # ------------------------------------------------------------------------------
+_check_ceph_user_belongs_to_ceph_group () {
+    local new_ceph_user="ceph"        # SES3+ daemons run as this user.
+    local new_ceph_group="ceph"       # SES3+ user "ceph" belongs to this group.
+
+    # 1. If user $new_ceph_user exists and belongs to $new_ceph_group, indicates
+    # that we are using the SES3+ ceph user and group format.
+    if getent passwd "$new_ceph_user" &>/dev/null
+    then
+        [[ $(id -g -n "$new_ceph_user") = "$new_ceph_group" ]] && return "$yes"
+    fi
+    return "$no"
+}
+
 running_as_root () {
     test "$EUID" -eq 0
 }
 
 user_ceph_not_in_use () {
-    ! ps -u ceph &>/dev/null
+    # Two possible cases where this function returns success:
+    # 1. user ceph is not in use
+    # 2. user ceph is in use, but it is not the archane 'ceph' admin user.
+    local ceph_user="ceph"
+
+    if ps -u "$ceph_user" &>/dev/null
+    then
+        _check_ceph_user_belongs_to_ceph_group
+    else
+        return "$success"
+    fi
 }
 
 ceph_conf_file_exists () {
@@ -420,10 +443,7 @@ The upgrade script must run as root. If this check fails, it means you are not
 running it as root (sudo/su are fine as long as they are not run as the
 \"ceph\" user)."
 )
-# TODO: this global check will not be valid as it is now. We will have to
-#       determine if "ceph" belongs to ceph-deploy, or to ceph (ie. are
-#       we upgrading from SES2 or SES3+. I think adding a /var/lib/ceph
-#       ownership check is needed.
+# TODO: Is the description clear?
 preflight_check_funcs+=("user_ceph_not_in_use")
 preflight_check_descs+=(
 "Check for processes owned by user \"ceph\"
@@ -432,10 +452,11 @@ In SES2, the user \"ceph\" was created to run ceph-deploy. In SES3 and beyond,
 all Ceph daemons run as user and group \"ceph\". Since it is preferable to have no
 ordinary \"ceph\" user in the system when the upgrade is performed, this script
 will check if there is an existing \"ceph\" user and rename it to \"cephadm\"
-if it exists. For this rename operation to work, the \"ceph\" user must not be
-in use. (It could be in use, for example, if you logged in as \"ceph\" and ran
-this script using sudo.) If this check fails, find processes owned by user
-\"ceph\" and terminate those processes. Then re-run the script."
+if it exists and is not the Ceph daemon user. For this rename operation to work,
+the \"ceph\" user must not be in use. (It could be in use, for example, if you
+logged in as \"ceph\" and ran this script using sudo.) If this check fails,
+find processes owned by user \"ceph\" and terminate those processes. Then re-run
+the script."
 )
 
 preflight_check_funcs+=("ceph_conf_file_exists")
@@ -492,10 +513,7 @@ rename_ceph_user () {
     # Local preflight checks.
     # 1. If user $new_ceph_user exists and belongs to $new_ceph_group, skip this
     #    upgrade function.
-    if getent passwd "$new_ceph_user" &>/dev/null
-    then
-        [[ $(id -g -n "$new_ceph_user") = "$new_ceph_group" ]] && return "$skipped"
-    fi
+    _check_ceph_user_belongs_to_ceph_group && return "$skipped"
     # 2. If $old_cephadm_user is not present on the system, skip this upgrade function.
     getent passwd "$old_cephadm_user" &>/dev/null || return "$skipped"
     # 3. We hit a case where: We have a $new_ceph_user that is _not_ in $new_ceph_group
