@@ -1,0 +1,137 @@
+Overall Approaches to Facilitating SESM->SESN upgrades
+====================================================================================================================================
+
+1. Detect early (global preflight) which version of SES we are running and will thus be upgrading from.
+  i.   Load necessary upgrade functions based on 'from' version.
+    - One subset for SES2->SES4
+    - One subset for SES3->SES4
+    - etc.
+  ii.  Only perform upgrade if SES2 is detected. Assume we will never have any special upgrade operations from SES3 and beyond.
+    -  In the case of upgrading from SES3+, inform the user to simply run `zypper dup`.
+2. Don't perform any global 'from' version detection, but rather ensure each upgrade function does the right thing and is idempotent.
+
+
+Approach                                 Pro                                              Con
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+1i. Detect early and load needed         Will only run necessary functions perhaps        If we get 'from' wrong, we will load the
+    funcs                                saving some time.                                wrong functions.
+                                         Decision about which functions to run is         If we don't complete the upgrade, we may
+                                         made at the top level and only in once place.    end up with a false positive that we have
+                                                                                          have indeed upgraded to the latest version.
+                                                                                          We will need to keep an array of version
+                                                                                          upgrade paths that we support:
+                                                                                            ses4=(ses2 ses3)
+                                                                                            ses5=(ses3 ses4)
+                                                                                          Also, if we get 'from' wrong genuinely or
+                                                                                          via a false positive (as in an incomplete
+                                                                                          upgrade), we will have to provide the user
+                                                                                          with a --force option or a question of
+                                                                                          whether to run anyway. This may go as deep
+                                                                                          as forcing the user to also provide a --from
+                                                                                          option so we know which upgrade functions to
+                                                                                          load. This forces too much complexity on the
+                                                                                          user.
+------------------------------------------------------------------------------------------------------------------------------------
+1ii. Detect early and only perform       Assumes all upgrades past SES3 will be           Limiting. I'm not sure it is realistic to 
+     upgrade if 'from' is SES2          `zypper dup` type and so no script is really      assume that we will never encounter the
+                                         needed. Simply tells the user to perform         same fiasco we did for SES2->SES3.
+                                         the upgrade themselves.                          If we genuinely get 'from' wrong, we will 
+                                         Makes my life really easy.                       bail out and not upgrade the cluster.
+                                                                                          If we get 'from' wrong due to a false
+                                                                                          positive (ie. incomplete upgrade) we would
+                                                                                          either not allow continuing the upgrade
+                                                                                          or ask the user if they wish to continue
+                                                                                          and perhaps ask from which version they
+                                                                                          are uprading, again, more complexity for
+                                                                                          the user.
+------------------------------------------------------------------------------------------------------------------------------------
+2. Each upgrade function does the        No 'from' is needed. Each function would         More potential logic in upgrade functions.
+   right thing and is idempotent.        evaluate some propsed change, and perform        Some input from the user may be needed in
+                                         it if needed (ie. replace some string, etc).     the functions making a non-interactive run
+                                         Always one set of functions to 'run'.            a bit tricky (I'm thinking of the ownership
+                                         Stopping and restarting the script would not     of /var/lib/ceph/*).
+                                         require any version input or decisions from      
+                                         the user as each function would be
+                                         idempotent.
+                                         We can make use of $SES_VER (generated during
+                                         build) in cases where something very specific
+                                         is only valid for the $SES_VER we are
+                                         upgrading to.
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+
+SES2 -> SES3/4 Upgrade Operations - Assume no global 'from' check, functions idempotent, etc.
+====================================================================================================================================
+
+'gp' - Global Preflight Check. This is a sanity check. All gp's need to succeed for the script to continue with the upgrade.
+
+Function                                 Role SES3                                        Role SES4
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+gp: running_as_root                      Check if script running as root. If not script   Same as SES3.
+                                         will abort.
+------------------------------------------------------------------------------------------------------------------------------------
+gp: user_ceph_not_in_use                 Check if any program on the system is running    Should check if any program is running as
+                                         as user 'ceph' (ie. login shell, ceph-deploy).   user 'ceph', if yes, it needs to then
+                                         If yes, script will abort. SES < 3 used user     determine if this is a valid case. If
+                                         ran `ceph-deploy` under the user 'ceph'. SESS    upgrading from SES2, proceed as in SES3.
+                                         3+ runs ceph daemons as user 'ceph'.             If upgrading from SES3+, this is actually
+                                                                                          a valid case and just means the ceph
+                                                                                          daemons are currently running. The goal
+                                                                                          is to determine how to check for SES3+
+                                                                                          (/var/lib/ceph ownership?).
+------------------------------------------------------------------------------------------------------------------------------------
+gp: ceph_conf_file_exists                Checks for presence of a ceph.conf file.         Same as SES3.
+------------------------------------------------------------------------------------------------------------------------------------
+stop_ceph_daemons                        Ask the user if they want to stop the ceph       Same as SES3.
+                                         daemons.
+------------------------------------------------------------------------------------------------------------------------------------
+rename_ceph_user                         First checks for the presence of user 'ceph'.    Same as SES3. The same logic fits to
+                                         If exists, checks to see if user 'ceph'          determine if we're upgrading from SES2 or
+                                         belongs to group 'ceph'. This indicates user     from SES3.
+                                         'ceph' has already been migrated from it's
+                                         role as admin to it's new role as the user
+                                         under which ceph daemons run.
+------------------------------------------------------------------------------------------------------------------------------------
+disable_radosgw_services                 If RGW installed, check for configured           Same as SES3. Migration of service names
+                                         instances in the ceph.conf with the SES2         will only happen if old (SES2) service
+                                         naming convention (client.radosgw.foo) that      names are detected. Since we carry over
+                                         are enabled (via systemctl) and ask permission   service names in the upgrade from SES3, if
+                                         to disable them via systemctl and track the      may confuse the script into thinking this
+                                         disabled instances in a tmp file for later       is a SES2 installation and service name
+                                         re-enablment.                                    migration is needed. However, since we
+                                                                                          already migrated the systemd service names
+                                                                                          as part of the upgrade, the function should
+                                                                                          not detect any enabled services using the
+                                                                                          old names. Thus this should be safe to run
+                                                                                          in a SES3->SES4 scenario, but needs testing
+                                                                                          to confirm.
+------------------------------------------------------------------------------------------------------------------------------------
+disable_restart_on_update                Ask the user if they wish to disable the         Same as SES3.
+                                         relevent sysconfig variable.
+- There is a bug in this function. If
+the user terminates the upgrade before
+the restore function has run, we lose
+the 'original' value. It should be
+pushed to a tmp file.
+------------------------------------------------------------------------------------------------------------------------------------
+zypper_dup                               Performs a distro upgrade.                       Same as SES3.
+------------------------------------------------------------------------------------------------------------------------------------
+restore_original_restart_on_update       Restores present value of sysconfig varialble.   Same as SES3.
+- Note bug re: disable_restart_on_update
+------------------------------------------------------------------------------------------------------------------------------------
+chown_var_lib_ceph                       Reursively sets ceph:ceph ownership of           Same as SES3. However, in the case of a
+                                         /var/lib/ceph.                                   SES3->SES4 upgrade, this would already have
+                                                                                          been done and would waste time to do again.
+                                                                                          May need to somehow check :(
+------------------------------------------------------------------------------------------------------------------------------------
+enable_radosgw_services                  Based on contents of tmp file derived in         Same as SES3. In the case of a SES3->SES4
+                                         disable_radosgw_services, renable services       the services should have already been
+                                         using the SES3+ naming convention. So, it        properly migrated, and the detection
+                                         would:                                           mechanism in disable_radosgw_services()
+                                         s/ceph-radosgw@foo/ceph-radosgw@radosgw.foo/     should not have added any services to the
+                                                                                          tmp file.
+------------------------------------------------------------------------------------------------------------------------------------
+standardize_radosgw_logfile_location     Removes non-standard log file location from      Same as SES3. No worries about SES3->SES4
+                                         ceph.conf.                                       upgrade as we should not match any such
+                                                                                          entries is upgrading from SES3.
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
