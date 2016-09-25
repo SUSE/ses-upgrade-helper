@@ -42,7 +42,7 @@ ceph_radosgw_pkg="ceph-radosgw"
 ceph_radosgw_disabled_services_datafile="/tmp/ceph_radosgw_disabled_services.out"
 # Pulled from /etc/sysconfig/ceph and used to store original value.
 ceph_auto_restart_on_upgrade_var="CEPH_AUTO_RESTART_ON_UPGRADE"
-ceph_auto_restart_on_upgrade_val=""
+ceph_auto_restart_on_upgrade_datafile="/tmp/ceph_auto_restart_on_upgrade.out"
 
 # Function arrays. Since bash can't do multidimensional associate arrays, this
 # seemed like a decent fallback.
@@ -617,7 +617,8 @@ disable_radosgw_services () {
 }
 
 disable_restart_on_update () {
-    # TODO: Perform pre-flight checks
+    local ceph_auto_restart_on_upgrade_val=""
+
     get_permission || return "$?"
 
     local G_IFS="$IFS" # Save global $IFS.
@@ -637,6 +638,10 @@ disable_restart_on_update () {
     # Restore local $IFS to global version.
     IFS="$G_IFS"
 
+    # If the tmp file does not exist, create and echo existing value for later restoration
+    [[ ! -e "$ceph_auto_restart_on_upgrade_datafile" ]] &&
+        echo "${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}" > "$ceph_auto_restart_on_upgrade_datafile"
+
     sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=no/" "$ceph_sysconfig_file"
 }
 
@@ -653,13 +658,32 @@ zypper_dup () {
 }
 
 restore_original_restart_on_update () {
-    # TODO: Perform pre-flight checks
+    local ceph_auto_restart_on_upgrade_val=""
+
+    # Local preflight checks
+    [[ -e "$ceph_auto_restart_on_upgrade_datafile" ]] || return "$skipped"
+
     get_permission || return "$?"
 
-    if [ ! -z "$ceph_auto_restart_on_upgrade_val" ]
-    then
-        sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
-    fi
+    local G_IFS="$IFS" # Save global $IFS.
+    local IFS="="      # Local $IFS used in read loop below.
+
+    while read key val
+    do
+        case "$key" in
+            "$ceph_auto_restart_on_upgrade_var")
+                ceph_auto_restart_on_upgrade_val="$val"
+                ;;
+            *)
+                continue
+                ;;
+        esac
+    done <"$ceph_auto_restart_on_upgrade_datafile"
+    # Restore local $IFS to global version.
+    IFS="$G_IFS"
+
+    sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
+    rm "$ceph_auto_restart_on_upgrade_datafile"
 }
 
 chown_var_lib_ceph () {
