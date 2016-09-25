@@ -108,16 +108,10 @@ disable_radosgw_services                 If RGW installed, check for configured 
 ------------------------------------------------------------------------------------------------------------------------------------
 disable_restart_on_update                Ask the user if they wish to disable the         Same as SES3.
                                          relevent sysconfig variable.
-- There is a bug in this function. If
-the user terminates the upgrade before
-the restore function has run, we lose
-the 'original' value. It should be
-pushed to a tmp file.
 ------------------------------------------------------------------------------------------------------------------------------------
 zypper_dup                               Performs a distro upgrade.                       Same as SES3.
 ------------------------------------------------------------------------------------------------------------------------------------
 restore_original_restart_on_update       Restores present value of sysconfig varialble.   Same as SES3.
-- Note bug re: disable_restart_on_update
 ------------------------------------------------------------------------------------------------------------------------------------
 chown_var_lib_ceph                       Reursively sets ceph:ceph ownership of           Same as SES3. However, in the case of a
                                          /var/lib/ceph.                                   SES3->SES4 upgrade, this would already have
