@@ -687,7 +687,11 @@ restore_original_restart_on_update () {
 }
 
 chown_var_lib_ceph () {
-    # TODO: Perform pre-flight checks
+    # Local preflight checks
+    [[ -d "/var/lib/ceph" ]] || return "$skipped"
+
+    [[ $(stat -c "%U:%G" /var/lib/ceph) = "ceph:ceph" ]] &&
+        out_info "It appears that /var/lib/ceph is already owned by ceph:ceph\n\n"
     get_permission || return "$?"
 
     out_info "This may take some time depending on the number of files on the OSD mounts.\n"
