@@ -1,7 +1,7 @@
 prefix := $(DESTDIR)
 
 MAN_PAGES := \
-    upgrade-to-ses3.sh.8
+    upgrade-ses.sh.8
 
 .PHONY: install
 install:
