@@ -1,7 +1,7 @@
 prefix := $(DESTDIR)
 
 INST_SCRIPTS := \
-    upgrade-to-ses3.sh
+    upgrade-ses.sh
 
 .PHONY: install
 install:
