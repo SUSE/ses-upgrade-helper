@@ -1,6 +1,6 @@
 #!/bin/bash
 # 
-# SES 2.1 -> 3.0 upgrade helper script
+# SES upgrade helper script
 #
 # Copyright (c) 2016, SUSE LLC
 # All rights reserved.
@@ -11,17 +11,18 @@
 #
 
 # ==============================================================================
-# upgrade-to-ses3.sh
-# ------------------
+# upgrade-ses.sh
+# --------------
 #
-# Sets out to upgrade a SES2/2.1 Installation to SES3.
+# Sets out to upgrade a SES Installation.
 #
 # ==============================================================================
 
 # Various globals
 DEBUG=false
+SES_VER="devel" # Replaced during build with SES version to which we will upgrade.
 scriptname=$(basename "$0")
-upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
+upgrade_doc="https://www.suse.com/documentation/ses-${SES_VER}/book_storage_admin/data/cha_ceph_upgrade.html"
 
 # Codes
 uninit=-1
@@ -41,7 +42,7 @@ ceph_radosgw_pkg="ceph-radosgw"
 ceph_radosgw_disabled_services_datafile="/tmp/ceph_radosgw_disabled_services.out"
 # Pulled from /etc/sysconfig/ceph and used to store original value.
 ceph_auto_restart_on_upgrade_var="CEPH_AUTO_RESTART_ON_UPGRADE"
-ceph_auto_restart_on_upgrade_val=""
+ceph_auto_restart_on_upgrade_datafile="/tmp/ceph_auto_restart_on_upgrade.out"
 
 # Function arrays. Since bash can't do multidimensional associate arrays, this
 # seemed like a decent fallback.
@@ -398,12 +399,35 @@ run_upgrade_func () {
 # ------------------------------------------------------------------------------
 # Global pre-flight functions.
 # ------------------------------------------------------------------------------
+_check_ceph_user_belongs_to_ceph_group () {
+    local new_ceph_user="ceph"        # SES3+ daemons run as this user.
+    local new_ceph_group="ceph"       # SES3+ user "ceph" belongs to this group.
+
+    # 1. If user $new_ceph_user exists and belongs to $new_ceph_group, indicates
+    # that we are using the SES3+ ceph user and group format.
+    if getent passwd "$new_ceph_user" &>/dev/null
+    then
+        [[ $(id -g -n "$new_ceph_user") = "$new_ceph_group" ]] && return "$yes"
+    fi
+    return "$no"
+}
+
 running_as_root () {
     test "$EUID" -eq 0
 }
 
 user_ceph_not_in_use () {
-    ! ps -u ceph &>/dev/null
+    # Two possible cases where this function returns success:
+    # 1. user ceph is not in use
+    # 2. user ceph is in use, but it is not the archane 'ceph' admin user.
+    local ceph_user="ceph"
+
+    if ps -u "$ceph_user" &>/dev/null
+    then
+        _check_ceph_user_belongs_to_ceph_group
+    else
+        return "$success"
+    fi
 }
 
 ceph_conf_file_exists () {
@@ -418,18 +442,20 @@ The upgrade script must run as root. If this check fails, it means you are not
 running it as root (sudo/su are fine as long as they are not run as the
 \"ceph\" user)."
 )
+# TODO: Is the description clear?
 preflight_check_funcs+=("user_ceph_not_in_use")
 preflight_check_descs+=(
 "Check for processes owned by user \"ceph\"
 ========================================
-In SES2, the user \"ceph\" was created to run ceph-deploy. In SES3, all Ceph
-daemons run as user and group \"ceph\". Since it is preferable to have no
+In SES2, the user \"ceph\" was created to run ceph-deploy. In SES3 and beyond,
+all Ceph daemons run as user and group \"ceph\". Since it is preferable to have no
 ordinary \"ceph\" user in the system when the upgrade is performed, this script
 will check if there is an existing \"ceph\" user and rename it to \"cephadm\"
-if it exists. For this rename operation to work, the \"ceph\" user must not be
-in use. (It could be in use, for example, if you logged in as \"ceph\" and ran
-this script using sudo.) If this check fails, find processes owned by user
-\"ceph\" and terminate those processes. Then re-run the script."
+if it exists and is not the Ceph daemon user. For this rename operation to work,
+the \"ceph\" user must not be in use. (It could be in use, for example, if you
+logged in as \"ceph\" and ran this script using sudo.) If this check fails,
+find processes owned by user \"ceph\" and terminate those processes. Then re-run
+the script."
 )
 
 preflight_check_funcs+=("ceph_conf_file_exists")
@@ -478,18 +504,15 @@ _rename_ceph_user_sudoers () {
 
 rename_ceph_user () {
     local old_cephadm_user="ceph"     # Our old SES2 cephadm user (ceph-deploy).
-    local new_cephadm_user="cephadm"  # Our new SES3 cephadm user (ceph-deploy).
-    local new_ceph_user="ceph"        # SES3 daemons run as this user.
-    local new_ceph_group="ceph"       # SES3 user "ceph" belongs to this group.
+    local new_cephadm_user="cephadm"  # Our new SES3+ cephadm user (ceph-deploy).
+    local new_ceph_user="ceph"        # SES3+ daemons run as this user.
+    local new_ceph_group="ceph"       # SES3+ user "ceph" belongs to this group.
     local not_complete=false
 
     # Local preflight checks.
     # 1. If user $new_ceph_user exists and belongs to $new_ceph_group, skip this
     #    upgrade function.
-    if getent passwd "$new_ceph_user" &>/dev/null
-    then
-        [[ $(id -g -n "$new_ceph_user") = "$new_ceph_group" ]] && return "$skipped"
-    fi
+    _check_ceph_user_belongs_to_ceph_group && return "$skipped"
     # 2. If $old_cephadm_user is not present on the system, skip this upgrade function.
     getent passwd "$old_cephadm_user" &>/dev/null || return "$skipped"
     # 3. We hit a case where: We have a $new_ceph_user that is _not_ in $new_ceph_group
@@ -594,7 +617,8 @@ disable_radosgw_services () {
 }
 
 disable_restart_on_update () {
-    # TODO: Perform pre-flight checks
+    local ceph_auto_restart_on_upgrade_val=""
+
     get_permission || return "$?"
 
     local G_IFS="$IFS" # Save global $IFS.
@@ -614,6 +638,10 @@ disable_restart_on_update () {
     # Restore local $IFS to global version.
     IFS="$G_IFS"
 
+    # If the tmp file does not exist, create and echo existing value for later restoration
+    [[ ! -e "$ceph_auto_restart_on_upgrade_datafile" ]] &&
+        echo "${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}" > "$ceph_auto_restart_on_upgrade_datafile"
+
     sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=no/" "$ceph_sysconfig_file"
 }
 
@@ -630,17 +658,40 @@ zypper_dup () {
 }
 
 restore_original_restart_on_update () {
-    # TODO: Perform pre-flight checks
+    local ceph_auto_restart_on_upgrade_val=""
+
+    # Local preflight checks
+    [[ -e "$ceph_auto_restart_on_upgrade_datafile" ]] || return "$skipped"
+
     get_permission || return "$?"
 
-    if [ ! -z "$ceph_auto_restart_on_upgrade_val" ]
-    then
-        sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
-    fi
+    local G_IFS="$IFS" # Save global $IFS.
+    local IFS="="      # Local $IFS used in read loop below.
+
+    while read key val
+    do
+        case "$key" in
+            "$ceph_auto_restart_on_upgrade_var")
+                ceph_auto_restart_on_upgrade_val="$val"
+                ;;
+            *)
+                continue
+                ;;
+        esac
+    done <"$ceph_auto_restart_on_upgrade_datafile"
+    # Restore local $IFS to global version.
+    IFS="$G_IFS"
+
+    sed -i "s/^${ceph_auto_restart_on_upgrade_var}.*/${ceph_auto_restart_on_upgrade_var}=${ceph_auto_restart_on_upgrade_val}/" "$ceph_sysconfig_file"
+    rm "$ceph_auto_restart_on_upgrade_datafile"
 }
 
 chown_var_lib_ceph () {
-    # TODO: Perform pre-flight checks
+    # Local preflight checks
+    [[ -d "/var/lib/ceph" ]] || return "$skipped"
+
+    [[ $(stat -c "%U:%G" /var/lib/ceph) = "ceph:ceph" ]] &&
+        out_info "It appears that /var/lib/ceph is already owned by ceph:ceph\n\n"
     get_permission || return "$?"
 
     out_info "This may take some time depending on the number of files on the OSD mounts.\n"
@@ -727,13 +778,14 @@ upgrade_func_descs+=(
 =================
 Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
+# TODO: Again, will need to determain if coming from SES2 or SES3+
 upgrade_funcs+=("rename_ceph_user")
 upgrade_func_descs+=(
 "Rename Ceph user
 ================
-SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3,
-Ceph daemons run as user \"ceph\" in group \"ceph\". The upgrade
-scripting will create these with the proper parameters, provided
+SES2 ran \`ceph-deploy\` under the username \"ceph\". With SES3
+and beyond, Ceph daemons run as user \"ceph\" in group \"ceph\". The
+upgrade scripting will create these with the proper parameters, provided
 they do not exist in the system. Therefore, we now rename any
 existing user \"ceph\" to \"cephadm\". If in doubt, say Y here."
 
@@ -786,17 +838,17 @@ upgrade_func_descs+=(
 "Re-enable RADOS Gateway services
 ================================
 Now that the ceph packages have been upgraded, we re-enable the RGW
-services using the SES3 naming convention. There is no danger in answering
-Yes here. If there are no RADOS Gateway instances configured on this node,
-the step will be skipped automatically."
+services using the SES3, and beyond, naming convention. There is no danger
+in answering Yes here. If there are no RADOS Gateway instances configured on
+this node, the step will be skipped automatically."
 )
 upgrade_funcs+=("standardize_radosgw_logfile_location")
 upgrade_func_descs+=(
 "Configure RADOS Gateway instances to log in default location
 ============================================================
 SES2 ceph-deploy added a \"log_file\" entry to ceph.conf setting a custom
-location for the RADOS Gateway log file in ceph.conf. In SES3, the best
-practice is to let the RADOS Gateway log to its default location,
+location for the RADOS Gateway log file in ceph.conf. In SES3 and beyond,
+the best practice is to let the RADOS Gateway log to its default location,
 \"/var/log/ceph\", like the other Ceph daemons. If in doubt, just say Yes."
 )
 
@@ -837,9 +889,9 @@ do
     shift
 done
 
-out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_bold_green "===== SES2.X to SES3 Upgrade =====\n"
-out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== Welcome to the SES-${SES_VER} Upgrade =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
 out_bold_green "\n"
 out_bold_green "Running pre-flight checks...\n"
 out_bold_green "\n"
@@ -864,8 +916,8 @@ do
     run_upgrade_func "${upgrade_funcs[$i]}" "${upgrade_func_descs[$i]}" "$i"
 done
 
-out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_bold_green "===== SES2.X to SES3 Upgrade Script has Finished =====\n"
-out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n"
+out_bold_green "========== SES-${SES_VER} Upgrade Script has Finished ==========\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n"
 
 output_final_report

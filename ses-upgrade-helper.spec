@@ -45,8 +45,8 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root)
 %doc AUTHORS LICENSE README
-%{_bindir}/upgrade-to-ses3.sh
-%{_mandir}/man8/upgrade-to-ses3.sh.8*
+%{_bindir}/upgrade-ses.sh
+%{_mandir}/man8/upgrade-ses.sh.8*
 
 %changelog
 
