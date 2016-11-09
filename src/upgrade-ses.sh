@@ -66,6 +66,12 @@ options:
 \t\tRun in non-interactive mode. All upgrade operations will be 
 \t\texecuted with no input from the user.
 
+\t-s, --skip-osd-parttype-check
+\t\tSkip the OSD partition type checks. Only skip this check if
+\t\tyou are certain your OSD journal and data partitions are of
+\t\tthe correct type, or because this check is gating an upgrade
+\t\tthat you must complete regarldess of potential OSD health.
+
 \t-h, --help
 \t\tPrint this usage message.
 "
@@ -103,6 +109,11 @@ out_bold_green () {
 out_err () {
     local msg=$1
     out_bold_red "ERROR: $msg"
+}
+
+out_warn () {
+    local msg=$1
+    out_red "WARN: $msg"
 }
 
 out_info () {
@@ -434,6 +445,134 @@ ceph_conf_file_exists () {
     [[ ! -z "$ceph_conf_file" && -e "$ceph_conf_file" ]]
 }
 
+_check_parttype () {
+    local part_path="$1"
+    local expected_parttype_uid="$2"
+    local blkid_out="/tmp/ses-upgrade-helper-blkid.out"
+    local osd_guide="http://docserv.nue.suse.com/documents/Storage_3/ses-admin/single-html/#bp.osd_on_exisitng_partitions"
+    local failure_detected=false
+    local warning_detected=false
+
+    if ! blkid -o udev -p "$part_path" > "$blkid_out" 2> /dev/null
+    then
+        # Failed to get valid blkid output. Unable to verify.
+        out_warn "${part_path} is an invalid partition.\n"
+        out_norm "  This is likely an inactive OSD and may be skipped.\n"
+        warning_detected=true
+    else
+        source "$blkid_out"
+        if [ "$ID_PART_ENTRY_SCHEME" != "gpt" ]
+        then
+            out_err "$part_path is not a GPT partition.\n"
+            out_norm "  Fix per $osd_guide\n"
+            failure_detected=true
+        fi
+
+        if [ "$ID_PART_ENTRY_TYPE" != "$expected_parttype_uid" ]
+        then
+            out_err "$part_path is of an invalid partition type.\n"
+            out_norm "  Fix per $osd_guide\n"
+            failure_detected=true
+        fi
+    fi
+    rm "$blkid_out"
+
+    # Failure trumps all other things.
+    [[ "$failure_detected" = true ]] && return "$failure"
+    [[ "$warning_detected" = true ]] && return "$skipped"
+    return "$success"
+}
+
+# Verify journal and data partitions are GPT and have the correct partition
+# type set.  Otherwise, alert the user and point at how to fix.
+check_osd_parttypes () {
+    local osd_base_dir=/var/lib/ceph/osd
+    local failure_detected=false
+    local warning_detected=false
+    local data_parttype_uid="4fbd7e29-9d25-41b8-afd0-062c0ceff05d"
+    local journal_parttype_uid="45b0969e-9b03-4f30-b4c6-b4b80ceff106"
+    local fsid=""
+
+    # Check if the user wants to skip this check.
+    [[ "$skip_osd_parttype_check" = true ]] &&
+        out_warn "Skipping this check.\n" &&
+        return "$success"
+
+    # If no OSD dir found, this is not a storage node, so assume success.
+    if [ ! -d "$osd_base_dir" ]
+    then
+        out_info "$osd_base_dir not found. This does not appear to be a storage node.\n"
+        return "$success"
+    fi
+
+    for osd_dir in ${osd_base_dir}/*
+    do
+        out_bold "\nVerifying OSD journal and data paritions for: $osd_dir\n"
+        if [ ! -d "$osd_dir" ]
+        then
+            out_warn "$osd_dir is not a directory. Skipping.\n"
+            warning_detected=true
+            continue
+        fi
+
+        # Verify journal. Skip if journal is a file.
+        if [ ! -e "${osd_dir}/journal" ]
+        then
+            out_warn "${osd_dir}/journal file/symlink not found. Unable to check partition type.\n"
+            out_norm "  This is likely an invalid OSD directory and may be skipped.\n"
+            warning_detected=true
+        elif [ ! -f "${osd_dir}/journal" ]
+        then
+            _check_parttype "${osd_dir}/journal" "$journal_parttype_uid"
+            local func_ret="$?"
+            if [ "$func_ret" = "$failure" ]
+            then
+                failure_detected=true
+            elif [ "$func_ret" = "$skipped" ]
+            then
+                warning_detected=true
+            fi
+        fi
+
+        # Verify data partition.
+        if [ ! -e "${osd_dir}/fsid" ]
+        then
+            out_warn "${osd_dir}/fsid file not found. Unable to check OSD data partition type.\n"
+            out_norm "  This is likely an invalid OSD directory and may be skipped.\n"
+            warning_detected=true
+        else
+            fsid=`cat "${osd_dir}/fsid" 2>/dev/null`
+            if [ -z "$fsid" ]
+            then
+                out_warn "${osd_dir}/fsid does not contain a data fsid. Unable to check partition type.\n"
+                out_norm "  This is likely an invalid OSD directory and may be skipped.\n"
+                warning_detected=true
+            else
+                _check_parttype "/dev/disk/by-partuuid/${fsid}" "$data_parttype_uid"
+                local func_ret="$?"
+                if [ "$func_ret" = "$failure" ]
+                then
+                    failure_detected=true
+                elif [ "$func_ret" = "$skipped" ]
+                then
+                    warning_detected=true
+                fi
+            fi
+        fi
+    done
+    out_norm "\n"
+
+    [[ "$failure_detected" = true ]] && return "$failure"
+
+    [[ "$warning_detected" = true ]] &&
+        out_bold "Review any OSD partition WARN messages above. If you are confident they are expected and caused by:\n" &&
+        out_bold "  1. Invalid OSD directories\n" &&
+        out_bold "  2. Inactives OSDs\n" &&
+        out_bold "Proceed with the upgrade.\n\n"
+
+    return "$success"
+}
+
 preflight_check_funcs+=("running_as_root")
 preflight_check_descs+=(
 "Check that script is running as root
@@ -468,6 +607,22 @@ configuration file is: ${ceph_conf_file}. This can be overriden with the \`-c\`
 option. See: \`${scriptname} -h\`"
 )
 
+preflight_check_funcs+=("check_osd_parttypes")
+preflight_check_descs+=(
+"Check OSD journal and data partition types
+===========================================
+On a storage node, each directory entry in /var/lib/ceph/osd/ should reflect an
+OSD. It should contain a journal file or a link to a journal partition, as well
+as an fsid file depicting the UUID of the OSD data partition. OSD journal and data
+partitions must be of the correct partition type.
+This check will generate a fatal error if the journal or data partitions are of an
+invalid parition type and point the admin to a repair guide. The upgrade script
+can then be re-run.
+This check will generate warnings if an OSD directory is found under
+/var/lib/ceph/osd/ that appears invalid/inactive (ie. contains an invalid/non-existent
+\'fsid\' or \'journal\' entry). The admin will then have the option, based on knowledge
+of their cluster, to proceed with the upgrade."
+)
 
 
 # ------------------------------------------------------------------------------
@@ -868,6 +1023,10 @@ trap abort INT
 # you guessed it, non interactive mode.
 interactive=true
 
+# By default, verify OSD partition types, but provide a switch to disable this
+# check.
+skip_osd_parttype_check=false
+
 # Parse our command line options
 while [ "$#" -ge 1 ]
 do
@@ -877,6 +1036,10 @@ do
 	    ;;
         -c | --conf)
             ceph_conf_file="$2"
+            shift
+            ;;
+        -s | --skip-osd-parttype-check)
+            skip_osd_parttype_check=true
             shift
             ;;
         -h | --help)

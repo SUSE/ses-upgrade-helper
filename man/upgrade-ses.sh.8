@@ -14,6 +14,11 @@ Load a specific Ceph configuration file. Default is /etc/ceph/ceph.conf
 .BI "-n \-\-non-interactive"
 Run in non-interactive mode. All upgrade operations will be executed with no input from the user.
 .TP
+.BI "-s \-\-skip-osd-parttype-check"
+Skip the OSD partition type checks. Only skip this check if you are certain your
+OSD journal and data partitions are of the correct type, or because this check
+is gating an upgrade that you must complete regarldess of potential OSD health.
+.TP
 .BI "-h \-\-help"
 Print usage message.
 
