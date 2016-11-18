@@ -24,12 +24,15 @@ scriptname=$(basename "$0")
 upgrade_doc="https://www.suse.com/documentation/ses-3/book_storage_admin/data/cha_ceph_upgrade.html"
 
 # Codes
-success=0
+uninit=-1
+success=0 # $success and $yes return the same value for get_permission handling.
 yes=0
 skipped=1
-no=1
 failure=2
 aborted=3
+user_skipped=4 # $user_skipped and $no return the same value for get_permission handling.
+no=4
+func_abort=254
 assert_err=255
 
 ceph_sysconfig_file="/etc/sysconfig/ceph"
@@ -44,7 +47,7 @@ ceph_auto_restart_on_upgrade_val=""
 # seemed like a decent fallback.
 upgrade_funcs=() # Array that will contain upgrade function names.
 upgrade_func_descs=() # Array that will contain corresponding upgrade function descriptions.
-upgrade_funcs_done=() # Array to which we will append names of upgrade functions that have completed
+upgrade_funcs_exit_codes=() # Array which will store exit codes of upgrade functions.
 preflight_check_funcs=() # Array of funcs that perform various global pre-flight checks.
 preflight_check_descs=() # Array of preflight function descriptions.
 
@@ -52,7 +55,6 @@ txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
-txtwhite=$(tput setaf 7)
 
 usage_msg="usage: $scriptname [options]
 options:
@@ -66,6 +68,17 @@ options:
 \t-h, --help
 \t\tPrint this usage message.
 "
+
+out_bold () {
+    local msg=$1
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${msg}${txtnorm}" || printf -- "$msg"
+}
+
+out_norm () {
+    local msg=$1
+    printf "${txtnorm}${msg}"
+}
+
 out_debug () {
     local msg=$1
     [[ "$DEBUG" = true ]] && printf "$msg\n"
@@ -73,32 +86,38 @@ out_debug () {
 
 out_red () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtred}${msg}${txtnorm}" || printf -- "$msg"
 }
 
-out_white () {
+out_bold_red () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtwhite}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${txtred}${msg}${txtnorm}" || printf -- "$msg"
 }
 
-out_green () {
+out_bold_green () {
     local msg=$1
-    [[ "$interactive" = true ]] && printf "${txtbold}${txtgreen}${msg}${txtnorm}" || printf -- "$msg"
+    [[ "$interactive" = true ]] && printf "${txtnorm}${txtbold}${txtgreen}${msg}${txtnorm}" || printf -- "$msg"
 }
 
 out_err () {
     local msg=$1
-    out_red "ERROR: $msg"
+    out_bold_red "ERROR: $msg"
 }
 
 out_info () {
     local msg="$1"
-    out_white "INFO: $msg"
+    out_bold "INFO: $msg"
+}
+
+assert () {
+    local msg="$1"
+    out_bold_red "FATAL: $msg"
+    exit "$assert_err"
 }
 
 usage_exit () {
     ret_code="$1"
-    printf "$usage_msg"
+    out_norm "$usage_msg"
     [[ -z "$ret_code" ]] && exit "$success" || exit "$ret_code"
 }
 
@@ -121,7 +140,7 @@ confirm_abort () {
 
     while true
     do
-	out_red "$prompt"
+	out_bold_red "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
@@ -137,23 +156,115 @@ confirm_abort () {
     done
 }
 
-output_incomplete_functions () {
-    out_green "Functions which have not yet been called or have failed (in this invocation of $scriptname):\n\n"
+# Returns $yes if all upgrade functions succeeded. Otherwise returns $no.
+upgrade_funcs_succeeded () {
     for i in "${!upgrade_funcs[@]}"
     do
-	if [ "${upgrade_funcs_done[$i]}" = false ]
-	then
-	    out_white "${upgrade_func_descs[$i]}\n" | sed -n 1p
-	fi
+        [[ "${upgrade_funcs_ret_codes[$i]}" = "$failure" ]] && return "$no"
     done
-    out_green "\nWhen re-running $scriptname, run ONLY the above functions, and ONLY if they have not successfully completed in a previous run.\n\n"
-    out_green "For additional upgrade information, please visit:\n"
-    out_white "$upgrade_doc\n"
+
+    return "$yes"
+}
+
+# Return $yes is user skipped any upgrade functions. Otherwise return $no.
+upgrade_funcs_user_skipped () {
+    for i in "${!upgrade_funcs[@]}"
+    do
+	[[ "${upgrade_funcs_ret_codes[$i]}" = "$user_skipped" ]] && return "$yes"
+    done
+
+    return "$no"
+}
+
+_output_final_report_failures () {
+    out_bold_red "\nWARNING: "
+    out_bold "One or more upgrade functions have failed!\n"
+    out_bold "         It is advisable to diagnoes the failures and re-run the failed functions.\n"
+}
+
+_output_final_report_success () {
+    out_bold_green "\nSUCCESS: "
+    out_bold "Upgrade has completed without any detected failures.\n"
+    out_bold "         Please go ahead and:\n"
+    out_norm "         1. Re-run any functions which you unintentionally skipped\n"
+    out_norm "         2. Reboot\n"
+    out_norm "         3. Wait for HEALTH_OK or HEALTH_WARN in case status also displays:\n"
+    out_norm "            \"crush map has legacy tunables (require bobtail, min is firefly)\"\n"
+    out_norm "         4. Then move on to the next node\n"
+}
+
+_output_final_report_list_failures () {
+    local failed_info_line_output=false
+
+    for i in "${!upgrade_funcs[@]}"
+    do
+        if [ "${upgrade_funcs_ret_codes[$i]}" = "$failure" ]
+        then
+            if [ $failed_info_line_output = false ]
+            then
+                out_bold "\nFunctions which have failed (in this invocation of $scriptname):\n"
+                out_bold "-----------------------------------------------------------------------\n"
+                failed_info_line_output=true
+            fi
+            out_red "${upgrade_func_descs[$i]}\n" | sed -n 1p
+        fi
+    done
+    [[ "$failed_info_line_output" = true ]] &&
+        out_bold "-----------------------------------------------------------------------\n"
+}
+
+_output_final_report_list_user_skipped () {
+    local user_skipped_info_line_output=false
+
+    for i in "${!upgrade_funcs[@]}"
+    do
+	if [ "${upgrade_funcs_ret_codes[$i]}" = "$user_skipped" ]
+        then
+            if [ $user_skipped_info_line_output = false ]
+            then
+                out_bold "\nFunctions which have been skipped by the user (in this invocation of $scriptname):\n"
+                out_bold "-----------------------------------------------------------------------------------------\n"
+                user_skipped_info_line_output=true
+            fi
+            out_norm "${upgrade_func_descs[$i]}\n" | sed -n 1p
+        fi
+    done
+    [[ "$user_skipped_info_line_output" = true ]] &&
+        out_bold "-----------------------------------------------------------------------------------------\n"
+}
+
+output_final_report () {
+    local aborting=false
+    [[ -n "$1" ]] && "$1" && aborting=true
+
+    out_bold "----------------------- "
+    out_bold_green "Report"
+    out_bold " -----------------------\n"
+
+    if [ "$aborting" = true ]
+    then
+        upgrade_funcs_succeeded || _output_final_report_failures
+    else
+        upgrade_funcs_succeeded && _output_final_report_success || _output_final_report_failures
+    fi
+
+    _output_final_report_list_failures
+    _output_final_report_list_user_skipped
+
+    if ! upgrade_funcs_succeeded || upgrade_funcs_user_skipped
+    then
+        out_bold_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n"
+    fi
+
+    out_bold "\nFor additional upgrade information, please visit:\n"
+    out_bold "$upgrade_doc\n\n"
 }
 
 abort () {
-    out_red "\nAborting...\n\n"
-    output_incomplete_functions
+    local msg="$1"
+    [[ -n "$msg" ]] && out_bold_red "FATAL: $msg"
+    out_bold_red "\nAborting...\n\n"
+    output_final_report true
     exit "$aborted"
 }
 
@@ -168,7 +279,7 @@ get_permission () {
 
     while true
     do
-	printf "$prompt"
+	out_bold "$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss] | "")
@@ -179,8 +290,8 @@ get_permission () {
                 ;;
             [Aa] | [Aa][Bb][Oo][Rr][Tt])
 		# If $yes, return $aborted, otherwise continue asking.
-		confirm_abort || continue
-		return "$aborted"
+		confirm_abort && return "$aborted"
+		continue
                 ;;
             *)
                 out_err "Invalid input.\n"
@@ -198,8 +309,7 @@ assert_number_of_args () {
     # assert that we have $expected number of arguments - no more, no less!
     if [[ "$actual" != "$expected" ]]
     then
-        out_err "${funcname}: Invalid number of arguments (${actual}). Please provide ${expected}.\n"
-	exit $assert_err
+	assert "${funcname}: Invalid number of arguments (${actual}). Please provide ${expected}.\n"
     fi
 }
 
@@ -212,8 +322,8 @@ run_preflight_check () {
     shift
 
     out_debug "DEBUG: about to run pre-flight check ${func}()"
-    out_white "${desc}\n"
-    out_white "\n"
+    out_norm "${desc}\n"
+    out_norm "\n"
 
     "$func" "$@"
 }
@@ -231,7 +341,7 @@ run_upgrade_func () {
     shift
 
     out_debug "\nDEBUG: about to run ${func}()"
-    out_white "\n\n${desc}\n\n"
+    out_norm "\n\n${desc}\n\n"
 
     # Run the function $func. It will:
     #   1. Perform necessary checks.
@@ -248,21 +358,32 @@ run_upgrade_func () {
 	func_ret="$?"
 	case $func_ret in
 	    "$success")
-		upgrade_funcs_done[$index]=true
+		upgrade_funcs_ret_codes[$index]="$success"
 		;;
 	    "$skipped")
-		# No-op. User does not wish to run $func.
-		out_white "Skipped!\n"
+		# Local function preflights have skipped the function.
+		upgrade_funcs_ret_codes[$index]="$skipped"
+		out_bold "Skipped!\n"
 		;;
 	    "$failure")
                 # Interactive mode failure case fails the current upgrade operation
                 # and continues. Non-interactive mode aborts on failure.
-		out_red "Failed!\n"
+		upgrade_funcs_ret_codes[$index]="$failure"
+		out_bold_red "Failed!\n"
                 [[ "$interactive" = false ]] && abort
 		;;
 	    "$aborted")
 		# User aborted the process
 		abort
+		;;
+	    "$user_skipped")
+		# User has decided to skip the function. This may have happened
+		# without actually performing anything more than local function
+		# preflights, or it may have happened after the upgrade function
+		# has failed 1+ times. Only set the exit code to $user_skipped
+		# if it is not already set to $failure.
+		[[ "${upgrade_funcs_ret_codes[$index]}" = "$failure" ]] || upgrade_funcs_ret_codes[$index]="$user_skipped"
+		out_bold "Skipped!\n"
 		;;
 	    *)
 		# No-op. Do nothing.
@@ -317,7 +438,7 @@ preflight_check_descs+=(
 ===================================================
 An existing Ceph configuration file needs to be present on the system in order
 for ${scriptname} to extract various aspects of the configuration. The default
-configuration file is: ${ceph_conf_file}. This can be overriden with the `-c`
+configuration file is: ${ceph_conf_file}. This can be overriden with the \`-c\`
 option. See: \`${scriptname} -h\`"
 )
 
@@ -331,6 +452,28 @@ stop_ceph_daemons () {
     get_permission || return "$?"
 
     systemctl stop ceph.target || return "$failure"
+}
+
+_rename_ceph_user_sudoers () {
+    local sudoers_file="/etc/sudoers"
+    local old_cephadm_user="$1"
+    local new_cephadm_user="$2"
+
+    # Ensure usernames are not null.
+    [[ -n "$old_cephadm_user" && -n "$new_cephadm_user" ]] ||
+        assert "NULL ceph admin user name(s) provided.\n"
+    # Ensure sudoers file exists.
+    [[ ! -e "$sudoers_file" ]] &&
+        out_err "$sudoers_file does not exist.\n" &&
+        return "$failure"
+
+    # Match all $old_cephadm_user entries that start at the beginning of a line
+    # and conclude at a word boundary. Replace with $new_cephadm_user.
+    # sed returns 0 whether or not matches occur.
+    sed -i "s/^${old_cephadm_user}\b/${new_cephadm_user}/g" "$sudoers_file" ||
+        return "$failure"
+
+    return "$success"
 }
 
 rename_ceph_user () {
@@ -375,8 +518,11 @@ rename_ceph_user () {
 
     local new_cephadm_group=$(id -g -n "$new_cephadm_user")
     # assert sanity
-    [[ -z "$new_cephadm_group" ]] && out_red "FATAL: could not determine gid of new cephadm user" && return $assert_err
-    [[ "$new_cephadm_group" = "ceph" ]] && out_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return $assert_err
+    [[ -z "$new_cephadm_group" ]] && out_bold_red "FATAL: could not determine gid of new cephadm user" && return "$func_abort"
+    [[ "$new_cephadm_group" = "ceph" ]] && out_bold_red "FATAL: new cephadm user is in group \"ceph\" - this is not allowed!" && return "$func_abort"
+
+    _rename_ceph_user_sudoers "$old_cephadm_user" "$new_cephadm_user" || return "$failure"
+
     # make sure cephadm has a usable home directory
     if [ -d "/home/${old_cephadm_user}" ]
     then
@@ -405,10 +551,10 @@ disable_radosgw_services () {
     ceph-conf --version &>/dev/null || return "$skipped"
     # Check if ceph-radosgw package installed.
     rpm -qi "$ceph_radosgw_pkg" &>/dev/null || return "$skipped"
-    # If we get_radosgw_conf_section_names() legitimately fails, then we return
-    # $assert_err. Since this is a preflight, we don't want to loop in run_upgrade_func(),
-    # so return $assert_err instead of $failure.
-    radosgw_conf_section_names=$(get_radosgw_conf_section_names) || return "$assert_err"
+    # If get_radosgw_conf_section_names() legitimately fails, then we return
+    # $func_abort. Since this is a preflight, we don't want to loop in
+    # run_upgrade_func(), so return $func_abort instead of $failure.
+    radosgw_conf_section_names=$(get_radosgw_conf_section_names) || return "$func_abort"
     for rgw_conf_section_name in $radosgw_conf_section_names
     do
         # rgw_conf_section_name -> [client.radosgw.some_host_name]
@@ -421,12 +567,12 @@ disable_radosgw_services () {
 
     # Done with our local preflights. Output list of instances we want to disable
     # and get permission to do so.
-    out_white "The following enabled RADOSGW instances have been selected for disablement on this node:\n"
+    out_bold "The following enabled RADOSGW instances have been selected for disablement on this node:\n"
     for rgw_service_instance in "${enabled_rgw_instances[@]}"
     do
-        printf "  $rgw_service_instance\n"
+        out_norm "  $rgw_service_instance\n"
     done
-    printf "\n"
+    out_norm "\n"
     get_permission || return "$?"
 
     # Clear out $ceph_radosgw_disabled_services_datafile.
@@ -442,7 +588,9 @@ disable_radosgw_services () {
 
     # If we failed at least once above, indicate this to the user. However,
     # given the above "Note:", we really can't fail.
-    [[ "$not_complete" = true ]] && return "$failure" || return "$success"
+    [[ "$not_complete" = true ]] && return "$failure"
+
+    return "$success"
 }
 
 disable_restart_on_update () {
@@ -529,12 +677,12 @@ enable_radosgw_services () {
 
     # Done with our local preflights. Output list of disabled instances that we
     # want to enable and get permission to do so.
-    out_white "The following RADOSGW instances have been disabled on this node and can now be properly re-enabled:\n"
+    out_bold "The following RADOSGW instances have been disabled on this node and can now be properly re-enabled:\n"
     for rgw_service_instance in "${disabled_rgw_instances[@]}"
     do
-        printf "  $rgw_service_instance\n"
+        out_norm "  $rgw_service_instance\n"
     done
-    printf "\n"
+    out_norm "\n"
     get_permission || return "$?"
 
     for rgw_service_instance in "${disabled_rgw_instances[@]}"
@@ -552,10 +700,10 @@ enable_radosgw_services () {
     # systemctl will happily take any instance name.
     if [ "$not_complete" = true ]
     then
-        out_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
-        printf "$ceph_radosgw_disabled_services_datafile:\n"
+        out_bold_red "\nThe following disabled RADOSGW instances were not properly re-enabled:\n"
+        out_norm "$ceph_radosgw_disabled_services_datafile:\n"
         cat "$ceph_radosgw_disabled_services_datafile"
-        printf "\n"
+        out_norm "\n"
         return "$failure"
     else
         rm "$ceph_radosgw_disabled_services_datafile"
@@ -571,11 +719,6 @@ standardize_radosgw_logfile_location () {
     # Heavy handedly remove log_file entries matching:
     # /var/log/ceph-radosgw/client.radosgw.*
     sed -i "/${log_file_exp}/d" "$ceph_conf_file" || return "$failure"
-}
-
-finish () {
-    # TODO: Noop for now.
-    :
 }
 
 upgrade_funcs+=("stop_ceph_daemons")
@@ -656,20 +799,11 @@ location for the RADOS Gateway log file in ceph.conf. In SES3, the best
 practice is to let the RADOS Gateway log to its default location,
 \"/var/log/ceph\", like the other Ceph daemons. If in doubt, just say Yes."
 )
-upgrade_funcs+=("finish")
-upgrade_func_descs+=(
-"Update has been Finished
-========================
-Please go ahead and:
-  1. Reboot
-  2. Wait for HEALTH_OK
-  3. Then move on to the next node"
-)
 
-# Functions have not yet been called. Set their done flags to false.
+# Set exit code for each upgrade function to $uninit (-1).
 for i in "${!upgrade_funcs[@]}"
 do
-    upgrade_funcs_done[$i]=false
+    upgrade_funcs_exit_codes[$i]="$uninit"
 done
 
 # ------------------------------------------------------------------------------
@@ -703,36 +837,35 @@ do
     shift
 done
 
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "===== SES2.X to SES3 Upgrade =====\n"
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "\n"
-out_green "Running pre-flight checks...\n"
-out_green "\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== SES2.X to SES3 Upgrade =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "\n"
+out_bold_green "Running pre-flight checks...\n"
+out_bold_green "\n"
 
 preflight_failures=false
 for i in "${!preflight_check_funcs[@]}"
 do
     if run_preflight_check "${preflight_check_funcs[$i]}" "${preflight_check_descs[$i]}"
     then
-        out_green "PASSED\n\n"
+        out_bold_green "PASSED\n\n"
     else
-        out_red "FAILED\n\n"
+        out_bold_red "FAILED\n\n"
         preflight_failures=true
     fi
 done
-[[ "$preflight_failures" = true ]] && out_white "One or more pre-flight checks failed\n" && exit 255
+[[ "$preflight_failures" = true ]] && abort "One or more pre-flight checks failed\n"
 
-out_green "\n"
-out_green "\nRunning upgrade functions...\n"
+out_bold_green "\nRunning upgrade functions...\n"
 
 for i in "${!upgrade_funcs[@]}"
 do
     run_upgrade_func "${upgrade_funcs[$i]}" "${upgrade_func_descs[$i]}" "$i"
 done
 
-out_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
-out_green "===== SES2.X to SES3 Upgrade Completed =====\n"
-out_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
+out_bold_green "\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n"
+out_bold_green "===== SES2.X to SES3 Upgrade Script has Finished =====\n"
+out_bold_green "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n"
 
-output_incomplete_functions
+output_final_report

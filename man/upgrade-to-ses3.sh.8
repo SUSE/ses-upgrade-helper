@@ -1,0 +1,25 @@
+.TH upgrade-to-ses3 8 "June 2016" "upgrade-to-ses3.sh" "SES2 to SES3 Upgrade"
+
+.SH NAME
+upgrade-to-ses3.sh \- SES2 to SES3 upgrade utility
+
+.SH SYNOPSIS
+.BI "upgrade-to-ses3.sh [" options "] "
+
+.SH OPTIONS
+.TP
+.BI "-c \-\-config " filename
+Load a specific Ceph configuration file. Default is /etc/ceph/ceph.conf
+.TP
+.BI "-n \-\-non-interactive"
+Run in non-interactive mode. All upgrade operations will be executed with no input from the user.
+.TP
+.BI "-h \-\-help"
+Print usage message.
+
+.SH COPYRIGHT
+Copyright (C) 2016 SUSE LINUX Products GmbH, Nuernberg, Germany.
+.SH BUGS
+Please report bugs at <https://bugzilla.suse.com>
+.SH AUTHORS
+Karol Mroz
