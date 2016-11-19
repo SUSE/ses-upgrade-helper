@@ -845,12 +845,19 @@ chown_var_lib_ceph () {
     # Local preflight checks
     [[ -d "/var/lib/ceph" ]] || return "$skipped"
 
-    [[ $(stat -c "%U:%G" /var/lib/ceph) = "ceph:ceph" ]] &&
-        out_info "It appears that /var/lib/ceph is already owned by ceph:ceph\n\n"
     get_permission || return "$?"
 
     out_info "This may take some time depending on the number of files on the OSD mounts.\n"
     chown -R ceph:ceph /var/lib/ceph || return "$failure"
+}
+
+chown_var_log_ceph () {
+    # Local preflight checks
+    [[ -d "/var/log/ceph" ]] || return "$skipped"
+
+    get_permission || return "$?"
+
+    chown -R ceph:ceph /var/log/ceph || return "$failure"
 }
 
 enable_radosgw_services () {
@@ -987,6 +994,13 @@ This step is critical to the proper functioning of the Ceph cluster and
 should only be skipped if you already recursively changed the ownership
 yourself and are sure you did it correctly. There is no danger in answering
 Yes here even if you have already done this step before."
+)
+upgrade_funcs+=("chown_var_log_ceph")
+upgrade_func_descs+=(
+"Set ownership of /var/log/ceph
+==============================
+Recursively set the ownerhip of /var/log/ceph to ceph:ceph. All ceph daemons
+in SES3 and beyond will run as user \"ceph\"."
 )
 upgrade_funcs+=("enable_radosgw_services")
 upgrade_func_descs+=(
