@@ -191,7 +191,7 @@ upgrade_funcs_user_skipped () {
 _output_final_report_failures () {
     out_bold_red "\nWARNING: "
     out_bold "One or more upgrade functions have failed!\n"
-    out_bold "         It is advisable to diagnoes the failures and re-run the failed functions.\n"
+    out_bold "         It is advisable to diagnose the failures and re-run $scriptname.\n"
 }
 
 _output_final_report_success () {
@@ -262,11 +262,6 @@ output_final_report () {
 
     _output_final_report_list_failures
     _output_final_report_list_user_skipped
-
-    if ! upgrade_funcs_succeeded || upgrade_funcs_user_skipped
-    then
-        out_bold_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n"
-    fi
 
     out_bold "\nFor additional upgrade information, please visit:\n"
     out_bold "$upgrade_doc\n\n"
