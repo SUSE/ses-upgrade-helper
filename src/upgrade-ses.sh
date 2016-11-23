@@ -801,14 +801,13 @@ disable_restart_on_update () {
 }
 
 zypper_dup () {
-    # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
     if [ "$interactive" = true ]
     then
 	zypper dist-upgrade || return "$failure"
     else
-	zypper --non-interactive dist-upgrade || return "$failure"
+	zypper --non-interactive dist-upgrade --auto-agree-with-licenses || return "$failure"
     fi
 }
 
