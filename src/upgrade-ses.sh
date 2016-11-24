@@ -191,7 +191,7 @@ upgrade_funcs_user_skipped () {
 _output_final_report_failures () {
     out_bold_red "\nWARNING: "
     out_bold "One or more upgrade functions have failed!\n"
-    out_bold "         It is advisable to diagnoes the failures and re-run the failed functions.\n"
+    out_bold "         It is advisable to diagnose the failures and re-run $scriptname.\n"
 }
 
 _output_final_report_success () {
@@ -262,11 +262,6 @@ output_final_report () {
 
     _output_final_report_list_failures
     _output_final_report_list_user_skipped
-
-    if ! upgrade_funcs_succeeded || upgrade_funcs_user_skipped
-    then
-        out_bold_green "\nWhen re-running $scriptname in order to continue an upgrade, run only the above failed and/or skipped functions.\n"
-    fi
 
     out_bold "\nFor additional upgrade information, please visit:\n"
     out_bold "$upgrade_doc\n\n"
@@ -637,22 +632,41 @@ stop_ceph_daemons () {
 
 _rename_ceph_user_sudoers () {
     local sudoers_file="/etc/sudoers"
+    local sudoers_dir="/etc/sudoers.d"
     local old_cephadm_user="$1"
     local new_cephadm_user="$2"
 
     # Ensure usernames are not null.
     [[ -n "$old_cephadm_user" && -n "$new_cephadm_user" ]] ||
         assert "NULL ceph admin user name(s) provided.\n"
-    # Ensure sudoers file exists.
-    [[ ! -e "$sudoers_file" ]] &&
-        out_err "$sudoers_file does not exist.\n" &&
-        return "$failure"
+
+    # /etc/sudoers.d/ceph (in SES2.1)
+    local sudoers_user_file="${sudoers_dir}/${old_cephadm_user}"
+
+    # If $sudoers_file or $sudoers_user_file do not exist, there is not much
+    # we can do here.  Emit a warning and return success.
+    [[ ! -e "$sudoers_file" && ! -e "$sudoers_user_file" ]] &&
+        out_warn "No sudoers entry or file found for user \"${old_cephadm_user}\".  Skipping.\n" &&
+        return "$success"
 
     # Match all $old_cephadm_user entries that start at the beginning of a line
     # and conclude at a word boundary. Replace with $new_cephadm_user.
     # sed returns 0 whether or not matches occur.
-    sed -i "s/^${old_cephadm_user}\b/${new_cephadm_user}/g" "$sudoers_file" ||
-        return "$failure"
+    if [ -e "$sudoers_file" ]
+    then
+        sed -i "s/^${old_cephadm_user}\b/${new_cephadm_user}/g" "$sudoers_file" ||
+            return "$failure"
+    fi
+
+    # Also possible that instead of /etc/sudoers, the admin user's sudo status
+    # is represented by a file in /etc/sudoers.d/${old_cephadm_user}.
+    if [ -e "$sudoers_user_file" ]
+    then
+        sed -i "s/^${old_cephadm_user}\b/${new_cephadm_user}/g" "$sudoers_user_file" ||
+            return "$failure"
+        mv "$sudoers_user_file" "${sudoers_dir}/${new_cephadm_user}" ||
+            return "$failure"
+    fi
 
     return "$success"
 }
@@ -801,14 +815,13 @@ disable_restart_on_update () {
 }
 
 zypper_dup () {
-    # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
     if [ "$interactive" = true ]
     then
 	zypper dist-upgrade || return "$failure"
     else
-	zypper --non-interactive dist-upgrade || return "$failure"
+	zypper --non-interactive dist-upgrade --auto-agree-with-licenses || return "$failure"
     fi
 }
 
