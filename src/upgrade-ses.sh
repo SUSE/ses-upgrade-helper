@@ -1069,7 +1069,6 @@ do
             ;;
         -s | --skip-osd-parttype-check)
             skip_osd_parttype_check=true
-            shift
             ;;
         -h | --help)
             usage_exit
