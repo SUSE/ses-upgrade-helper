@@ -788,6 +788,8 @@ disable_radosgw_services () {
 disable_restart_on_update () {
     local ceph_auto_restart_on_upgrade_val=""
 
+    [[ ! -e "$ceph_sysconfig_file" ]] && return "$skipped"
+
     get_permission || return "$?"
 
     local G_IFS="$IFS" # Save global $IFS.
