@@ -986,9 +986,10 @@ upgrade_funcs+=("zypper_dup")
 upgrade_func_descs+=(
 "Zypper distribution upgrade
 ===========================
-This step upgrades the system by running \"zypper dist-upgrade\". If you
-prefer to upgrade by some other means (e.g. SUSE Manager), do that now, but
-do not reboot the system - just select Skip when the upgrade finishes."
+This step upgrades the packages on the system by running \"zypper dist-upgrade\".
+If you prefer to upgrade by some other means (e.g. SUSE Manager), do that now, but
+do not reboot the system - just select \"No\" to skip this step when the
+package upgrade finishes."
 )
 upgrade_funcs+=("restore_original_restart_on_update")
 upgrade_func_descs+=(
