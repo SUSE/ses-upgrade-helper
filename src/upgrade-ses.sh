@@ -576,7 +576,6 @@ The upgrade script must run as root. If this check fails, it means you are not
 running it as root (sudo/su are fine as long as they are not run as the
 \"ceph\" user)."
 )
-# TODO: Is the description clear?
 preflight_check_funcs+=("user_ceph_not_in_use")
 preflight_check_descs+=(
 "Check for processes owned by user \"ceph\"
@@ -624,7 +623,6 @@ of their cluster, to proceed with the upgrade."
 # Operations
 # ------------------------------------------------------------------------------
 stop_ceph_daemons () {
-    # TODO: Perform pre-flight checks
     get_permission || return "$?"
 
     systemctl stop ceph.target || return "$failure"
@@ -787,6 +785,8 @@ disable_radosgw_services () {
 
 disable_restart_on_update () {
     local ceph_auto_restart_on_upgrade_val=""
+
+    [[ ! -e "$ceph_sysconfig_file" ]] && return "$skipped"
 
     get_permission || return "$?"
 
@@ -953,7 +953,6 @@ upgrade_func_descs+=(
 =================
 Stop all Ceph daemons. Please select \"Yes\" as this is a needed step."
 )
-# TODO: Again, will need to determain if coming from SES2 or SES3+
 upgrade_funcs+=("rename_ceph_user")
 upgrade_func_descs+=(
 "Rename Ceph user
@@ -963,7 +962,6 @@ and beyond, Ceph daemons run as user \"ceph\" in group \"ceph\". The
 upgrade scripting will create these with the proper parameters, provided
 they do not exist in the system. Therefore, we now rename any
 existing user \"ceph\" to \"cephadm\". If in doubt, say Y here."
-
 )
 upgrade_funcs+=("disable_radosgw_services")
 upgrade_func_descs+=(
@@ -1067,7 +1065,6 @@ do
             ;;
         -s | --skip-osd-parttype-check)
             skip_osd_parttype_check=true
-            shift
             ;;
         -h | --help)
             usage_exit
