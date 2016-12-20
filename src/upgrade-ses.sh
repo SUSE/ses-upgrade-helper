@@ -1,10 +1,10 @@
 #!/bin/bash
-# 
+#
 # SES upgrade helper script
 #
 # Copyright (c) 2016, SUSE LLC
 # All rights reserved.
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
@@ -63,14 +63,14 @@ options:
 \t\tLoad specific configuration file. Default is $ceph_conf_file.
 
 \t-n, --non-interactive
-\t\tRun in non-interactive mode. All upgrade operations will be 
+\t\tRun in non-interactive mode. All upgrade operations will be
 \t\texecuted with no input from the user.
 
 \t-s, --skip-osd-parttype-check
 \t\tSkip the OSD partition type checks. Only skip this check if
 \t\tyou are certain your OSD journal and data partitions are of
 \t\tthe correct type, or because this check is gating an upgrade
-\t\tthat you must complete regarldess of potential OSD health.
+\t\tthat you must complete regardless of potential OSD health.
 
 \t-h, --help
 \t\tPrint this usage message.
@@ -562,7 +562,7 @@ check_osd_parttypes () {
     [[ "$warning_detected" = true ]] &&
         out_bold "Review any OSD partition WARN messages above. If you are confident they are expected and caused by:\n" &&
         out_bold "  1. Invalid OSD directories\n" &&
-        out_bold "  2. Inactives OSDs\n" &&
+        out_bold "  2. Inactive OSDs\n" &&
         out_bold "Proceed with the upgrade.\n\n"
 
     return "$success"
@@ -597,7 +597,7 @@ preflight_check_descs+=(
 ===================================================
 An existing Ceph configuration file needs to be present on the system in order
 for ${scriptname} to extract various aspects of the configuration. The default
-configuration file is: ${ceph_conf_file}. This can be overriden with the \`-c\`
+configuration file is: ${ceph_conf_file}. This can be overridden with the \`-c\`
 option. See: \`${scriptname} -h\`"
 )
 
@@ -610,10 +610,10 @@ OSD. It should contain a journal file or a link to a journal partition, as well
 as an fsid file depicting the UUID of the OSD data partition. OSD journal and data
 partitions must be of the correct partition type.
 This check will generate a fatal error if the journal or data partitions are of an
-invalid parition type and point the admin to a repair guide. The upgrade script
+invalid partition type and point the admin to a repair guide. The upgrade script
 can then be re-run.
 This check will generate warnings if an OSD directory is found under
-/var/lib/ceph/osd/ that appears invalid/inactive (ie. contains an invalid/non-existent
+/var/lib/ceph/osd/ that appears invalid/inactive (i.e. contains an invalid/non-existent
 \'fsid\' or \'journal\' entry). The admin will then have the option, based on knowledge
 of their cluster, to proceed with the upgrade."
 )
@@ -683,7 +683,7 @@ rename_ceph_user () {
     # 2. If $old_cephadm_user is not present on the system, skip this upgrade function.
     getent passwd "$old_cephadm_user" &>/dev/null || return "$skipped"
     # 3. We hit a case where: We have a $new_ceph_user that is _not_ in $new_ceph_group
-    #    _and_ we also have a $new_cephadm_user present. This is a bad state 
+    #    _and_ we also have a $new_cephadm_user present. This is a bad state
     #    (we have 2 administrative type users and the usermod -l will fail)
     #    that requires manual intervention.
     getent passwd "$new_cephadm_user" &>/dev/null &&
@@ -693,7 +693,7 @@ rename_ceph_user () {
     get_permission || return "$?"
 
     # If the rename fails, report error and don't proceed further, unless $?==6,
-    # signalling that the $old_cephadm_user no longer exists (ie. because we have
+    # signalling that the $old_cephadm_user no longer exists (i.e. because we have
     # already renamed it.
     # Remainder of operations, on failure, set not_complete flag. User will need to
     # handle the rename and chown themselves as the system is in a non-standard state.
@@ -995,7 +995,7 @@ upgrade_funcs+=("restore_original_restart_on_update")
 upgrade_func_descs+=(
 "Restore CEPH_AUTO_RESTART_ON_UPGRADE sysconfig option
 =====================================================
-Restores this sysconfig option to the value saved in the \"Disable\" step 
+Restores this sysconfig option to the value saved in the \"Disable\" step
 above."
 )
 upgrade_funcs+=("chown_var_lib_ceph")
