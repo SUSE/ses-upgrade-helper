@@ -609,13 +609,16 @@ On a storage node, each directory entry in /var/lib/ceph/osd/ should reflect an
 OSD. It should contain a journal file or a link to a journal partition, as well
 as an fsid file depicting the UUID of the OSD data partition. OSD journal and data
 partitions must be of the correct partition type.
-This check will generate a fatal error if the journal or data partitions are of an
-invalid partition type and point the admin to a repair guide. The upgrade script
-can then be re-run.
-This check will generate warnings if an OSD directory is found under
-/var/lib/ceph/osd/ that appears invalid/inactive (i.e. contains an invalid/non-existent
-\'fsid\' or \'journal\' entry). The admin will then have the option, based on knowledge
-of their cluster, to proceed with the upgrade."
+
+This check will output:
+- fatal errors if the journal or data partitions are of an invalid
+partition type (then point the admin to the proper documentation to fix the issue)
+
+- warnings if an OSD directory found under /var/lib/ceph/osd/ appears to
+be invalid/inactive (i.e. contains an invalid/non-existent \'fsid\' or \'journal\' entry).
+
+After fixing the issue, the upgrade script can be re-run.
+To skip this test, run the script with -s or --skip-osd-parttype-check"
 )
 
 
