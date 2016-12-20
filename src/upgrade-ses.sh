@@ -444,7 +444,7 @@ _check_parttype () {
     local part_path="$1"
     local expected_parttype_uid="$2"
     local blkid_out="/tmp/ses-upgrade-helper-blkid.out"
-    local osd_guide="http://docserv.nue.suse.com/documents/Storage_${SES_VER}/ses-admin/single-html/#bp.osd_on_exisitng_partitions"
+    local osd_guide="https://www.suse.com/documentation/ses-${SES_VER}/singlehtml/book_storage_admin/book_storage_admin.html#bp.osd_on_exisitng_partitions"
     local failure_detected=false
     local warning_detected=false
 
