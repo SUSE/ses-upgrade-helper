@@ -155,7 +155,7 @@ confirm_abort () {
 	out_bold_red "$prompt"
         read choice
         case $choice in
-            [Yy] | [Yy][Ee][Ss])
+            [Yy] | [Yy][Ee] | [Yy][Ee][Ss])
 		return "$yes"
                 ;;
             [Nn] | [Nn][Oo] | "")
@@ -289,13 +289,13 @@ get_permission () {
 	out_bold "$prompt"
         read choice
         case $choice in
-            [Yy] | [Yy][Ee][Ss] | "")
+            [Yy] | [Yy][Ee] | [Yy][Ee][Ss] | "")
 		return "$yes"
                 ;;
             [Nn] | [Nn][Oo])
 		return "$no"
                 ;;
-            [Aa] | [Aa][Bb][Oo][Rr][Tt])
+            [Aa] | [Aa][Bb] | [Aa][Bb][Oo] | [Aa][Bb][Oo][Rr] | [Aa][Bb][Oo][Rr][Tt])
 		# If $yes, return $aborted, otherwise continue asking.
 		confirm_abort && return "$aborted"
 		continue
