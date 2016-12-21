@@ -146,7 +146,7 @@ get_radosgw_conf_section_names () {
 # Be sure that the user wants to abort the upgrade process.
 confirm_abort () {
     local msg="Are you sure you want to abort?"
-    local answers="Y[es]/N[o] (N)"
+    local answers="Yes/No (N)"
     local prompt="[$msg - $answers]> "
     local choice=""
 
@@ -155,7 +155,7 @@ confirm_abort () {
 	out_bold_red "$prompt"
         read choice
         case $choice in
-            [Yy] | [Yy][Ee][Ss])
+            [Yy] | [Yy][Ee] | [Yy][Ee][Ss])
 		return "$yes"
                 ;;
             [Nn] | [Nn][Oo] | "")
@@ -278,7 +278,7 @@ abort () {
 # Returns $yes on Yes, $no on No and $aborted on Abort.
 get_permission () {
     local msg="Run this operation?"
-    local answers="Y[es]/N[o]/A[bort] (Y)"
+    local answers="Yes/No/Abort (Y)"
     local prompt="[$msg - $answers]> "
     local choice=""
 
@@ -289,13 +289,13 @@ get_permission () {
 	out_bold "$prompt"
         read choice
         case $choice in
-            [Yy] | [Yy][Ee][Ss] | "")
+            [Yy] | [Yy][Ee] | [Yy][Ee][Ss] | "")
 		return "$yes"
                 ;;
             [Nn] | [Nn][Oo])
 		return "$no"
                 ;;
-            [Aa] | [Aa][Bb][Oo][Rr][Tt])
+            [Aa] | [Aa][Bb] | [Aa][Bb][Oo] | [Aa][Bb][Oo][Rr] | [Aa][Bb][Oo][Rr][Tt])
 		# If $yes, return $aborted, otherwise continue asking.
 		confirm_abort && return "$aborted"
 		continue
