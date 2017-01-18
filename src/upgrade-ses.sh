@@ -72,6 +72,10 @@ options:
 \t\tthe correct type, or because this check is gating an upgrade
 \t\tthat you must complete regardless of potential OSD health.
 
+\t-l, --auto-agree-with-licenses
+\t\tAuto agree with package level licenses during zypper distribution
+\t\tupgrade.
+
 \t-h, --help
 \t\tPrint this usage message.
 "
@@ -820,12 +824,15 @@ disable_restart_on_update () {
 zypper_dup () {
     get_permission || return "$?"
 
-    if [ "$interactive" = true ]
-    then
-	zypper dist-upgrade || return "$failure"
-    else
-	zypper --non-interactive dist-upgrade --auto-agree-with-licenses || return "$failure"
-    fi
+    # Compile list of zypper switches.
+    local zypper_switches=""
+    [[ "$interactive" = false ]] && zypper_switches+="--non-interactive"
+
+    # Compile list of dist-upgrade switches.
+    local dist_upgrade_switches=""
+    [[ "$auto_agree_with_licenses" = true ]] && dist_upgrade_switches+="--auto-agree-with-licenses"
+
+    zypper $zypper_switches dist-upgrade $dist_upgrade_switches || return "$failure"
 }
 
 restore_original_restart_on_update () {
@@ -1056,6 +1063,10 @@ interactive=true
 # check.
 skip_osd_parttype_check=false
 
+# By default, the user should accept package level licenses when upgrading via
+# zypper.  Auto accepting can be enabled with a switch.
+auto_agree_with_licenses=false
+
 # Parse our command line options
 while [ "$#" -ge 1 ]
 do
@@ -1069,6 +1080,9 @@ do
             ;;
         -s | --skip-osd-parttype-check)
             skip_osd_parttype_check=true
+	    ;;
+	-l | --auto-agree-with-licenses)
+	    auto_agree_with_licenses=true
             ;;
         -h | --help)
             usage_exit
